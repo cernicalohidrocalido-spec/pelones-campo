@@ -258,7 +258,7 @@ a,button,input,select{touch-action:manipulation}
 <!-- ══════════ CONTROL BAR ══════════ -->
 <div class="cbar">
   <div class="cgrid">
-    <div><div class="flabel">Transecto No.</div><input type="number" id="tid" class="finput" value="1" min="1" max="18" onchange="markDirty()"></div>
+    <div><div class="flabel">Transecto No.</div><input type="number" id="tid" class="finput" value="1" min="1" max="18" onchange="onTidChange(this)"></div>
     <div><div class="flabel">Biólogo</div><input type="text" id="bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
     <div><div class="flabel">Fecha</div><input type="date" id="fecha" class="finput" onchange="markDirty()"></div>
     <div><div class="flabel">Hora inicio</div><input type="time" id="hora" class="finput" onchange="markDirty()"></div>
@@ -607,6 +607,25 @@ a,button,input,select{touch-action:manipulation}
   </div>
 </div>
 
+<!-- ══════════ TRANSECT SWITCH MODAL ══════════ -->
+<div class="modal-bg" id="switchModal">
+  <div class="modal" style="max-width:460px">
+    <h3 style="color:var(--moss)">🔄 Cambio de transecto</h3>
+    <div id="switchModalBody" style="font-size:.95rem;line-height:1.7;margin-bottom:16px;color:#333"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-g" style="grid-column:span 2" onclick="confirmSwitchTransect()">
+        ✅ Guardar T<span id="swOldTid"></span> y pasar al T<span id="swNewTid"></span>
+      </button>
+      <button class="btn btn-b" onclick="switchWithoutSave()">
+        ➡️ Cambiar sin guardar anterior
+      </button>
+      <button class="btn btn-s" onclick="cancelSwitchTransect()">
+        ✕ Cancelar — quedarme en T<span id="swCancelTid"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- DATALISTS -->
 <datalist id="dlMat">
   <option value="Prosopis laevigata"><option value="Acacia farnesiana"><option value="Acacia schaffneri">
@@ -710,6 +729,8 @@ window.onload = () => {
   } else {
     document.getElementById('saveTime').textContent='Sin datos guardados';
   }
+  // Track current transect for switch detection
+  _currentTid=document.getElementById('tid').value;
 
   // Auto-start GPS if permission already granted AND not file://
   if(navigator.geolocation && window.location.protocol !== 'file:') {
@@ -1986,6 +2007,161 @@ function loadPrev(){
   loadFromStorage();
   renderHist();
   goTab('hist',document.querySelectorAll('.tab')[3]);
+}
+
+// ══════════════════════════════════════════════════════════
+// TRANSECT SWITCH — save previous, reset, load new
+// ══════════════════════════════════════════════════════════
+let _pendingTid=null; // the new tid the user wants to switch to
+let _currentTid=null; // the tid before the switch
+
+function onTidChange(input){
+  const newTid=input.value;
+  const oldTid=_currentTid||'1';
+
+  // Nothing to do if same transect or no data captured yet
+  const hasData=document.querySelectorAll('#bMat tr').length>0||
+                document.querySelectorAll('#bPas tr').length>0;
+
+  if(newTid===oldTid || !hasData){
+    _currentTid=newTid;
+    markDirty();
+    return;
+  }
+
+  // Restore input to old value visually while modal is open
+  input.value=oldTid;
+  _pendingTid=newTid;
+
+  // Count current data
+  const nMat=document.querySelectorAll('#bMat tr').length;
+  const nPas=document.querySelectorAll('#bPas tr').length;
+  const alreadySaved=savedTransects[oldTid]?.mat?.length>0;
+
+  document.getElementById('swOldTid').textContent=oldTid;
+  document.getElementById('swNewTid').textContent=newTid;
+  document.getElementById('swCancelTid').textContent=oldTid;
+  document.getElementById('switchModalBody').innerHTML=
+    `<div style="background:var(--straw-lt);border:2px solid var(--straw);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+       <b style="font-family:var(--fm);font-size:.85rem">Transecto actual: T${oldTid}</b><br>
+       📋 ${nMat} individuos matorral · ${nPas} registros pastizal${alreadySaved?' · ✅ ya guardado previo':''}
+     </div>
+     Al confirmar:<br>
+     • Se <b>guardará automáticamente</b> el transecto <b>${oldTid}</b><br>
+     • La vista se limpiará a <b>cero</b> para el transecto <b>${newTid}</b><br>
+     • ${savedTransects[newTid]?`Se cargarán los datos previos del T${newTid}`:`El T${newTid} comenzará vacío`}`;
+
+  document.getElementById('switchModal').classList.add('show');
+}
+
+function confirmSwitchTransect(){
+  document.getElementById('switchModal').classList.remove('show');
+  const oldTid=_currentTid||document.getElementById('tid').value;
+  const newTid=_pendingTid;
+
+  // 1 — Save the current transect
+  const tid=oldTid;
+  if(!savedTransects[tid]) savedTransects[tid]={};
+  savedTransects[tid].meta={
+    tid, bio:document.getElementById('bio').value,
+    fecha:document.getElementById('fecha').value,
+    hora:document.getElementById('hora').value,
+    cond:document.getElementById('cond').value,
+    transectGps:{...transectGps},
+    th:getTHMeta()
+  };
+  savedTransects[tid].mat=gatherMat();
+  savedTransects[tid].pas=gatherPas();
+  if(currentResults && currentResults.tid===tid)
+    savedTransects[tid].results=currentResults;
+  persistToStorage();
+  showToast(`✅ Transecto ${tid} guardado — ${savedTransects[tid].mat.length} mat. / ${savedTransects[tid].pas.length} pas.`,'var(--moss)');
+
+  // 2 — Switch to new transect
+  doSwitchToTransect(newTid);
+}
+
+function switchWithoutSave(){
+  document.getElementById('switchModal').classList.remove('show');
+  doSwitchToTransect(_pendingTid);
+  showToast(`➡️ Cambiado a transecto ${_pendingTid} sin guardar el anterior`,'#555');
+}
+
+function cancelSwitchTransect(){
+  document.getElementById('switchModal').classList.remove('show');
+  // Restore old tid in input
+  document.getElementById('tid').value=_currentTid||'1';
+  _pendingTid=null;
+}
+
+function doSwitchToTransect(newTid){
+  _currentTid=newTid;
+  document.getElementById('tid').value=newTid;
+
+  // Reset everything for new transect
+  document.getElementById('bMat').innerHTML='';
+  document.getElementById('bPas').innerHTML='';
+  document.getElementById('eMat').style.display='';
+  document.getElementById('ePas').style.display='';
+  matRC=0; pasQC=0;
+  currentResults=null;
+
+  // Reset GPS transect
+  transectGps={lat:null,lon:null,alt:null,acc:null,utmE:null,utmN:null,zone:null};
+  document.getElementById('tLatStart').textContent='Sin captura';
+  document.getElementById('tLonStart').textContent='Sin captura';
+  document.getElementById('tUtmStart').textContent='Sin captura';
+  const b=document.getElementById('btnTGps');
+  b.textContent='📡 Capturar inicio'; b.style.background=''; b.style.color='';
+
+  // Reset T/H fields
+  ['t_ini','h_ini','t_fin','h_fin','hora_fin'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('weatherStatus').textContent='';
+
+  // Reset hora to now
+  const now=new Date();
+  document.getElementById('hora').value=
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('hora_fin').value='';
+
+  // Reset results panel
+  document.getElementById('resEmpty').style.display='';
+  document.getElementById('resContent').style.display='none';
+
+  // If new transect has saved data, load it
+  if(savedTransects[newTid]){
+    const t=savedTransects[newTid];
+    if(t.meta){
+      if(t.meta.bio)   document.getElementById('bio').value=t.meta.bio;
+      if(t.meta.fecha) document.getElementById('fecha').value=t.meta.fecha;
+      if(t.meta.hora)  document.getElementById('hora').value=t.meta.hora;
+      if(t.meta.transectGps?.lat){
+        transectGps={...t.meta.transectGps};
+        document.getElementById('tLatStart').textContent=(+transectGps.lat).toFixed(7);
+        document.getElementById('tLonStart').textContent=(+transectGps.lon).toFixed(7);
+        if(transectGps.utmE&&transectGps.utmN)
+          document.getElementById('tUtmStart').textContent=
+            `${(+transectGps.utmE).toFixed(1)} / ${(+transectGps.utmN).toFixed(1)} (${transectGps.zone||''})`;
+        b.textContent='✅ GPS capturado'; b.style.background='var(--gps-on)'; b.style.color='#fff';
+      }
+      if(t.meta.th) setTHMeta(t.meta.th);
+    }
+    (t.mat||[]).forEach(d=>addMat(d));
+    const grpPas={};
+    (t.pas||[]).forEach(d=>{const q=d.q||'1';if(!grpPas[q])grpPas[q]=[];grpPas[q].push(d);});
+    Object.keys(grpPas).sort((a,b)=>+a-+b).forEach(q=>grpPas[q].forEach(d=>addPasRow(d)));
+    if(t.results){ currentResults=t.results; renderResults(); }
+    showToast(`📂 Transecto ${newTid} cargado — ${(t.mat||[]).length} ind.`,'var(--sky)');
+  } else {
+    showToast(`🆕 Transecto ${newTid} — captura iniciada`,'var(--moss)');
+  }
+
+  updateCounts(); markClean();
+  _pendingTid=null;
+  // IMPORTANT: also update _currentTid from restoreAllTransects
+  _currentTid=newTid;
 }
 
 function markDirty(){isDirty=true;document.getElementById('saveDot').className='save-dot dirty';}

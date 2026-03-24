@@ -299,7 +299,7 @@ a,button,input,select{touch-action:manipulation}
     <!-- Control bar -->
     <div class="cbar">
       <div class="cgrid">
-        <div><div class="flabel">Punto de conteo No.</div><input type="number" id="ave-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Punto de conteo No.</div><input type="number" id="ave-pid" class="finput" value="1" min="1" onchange="onPidChange(this,'ave')"></div>
         <div><div class="flabel">Biólogo</div><input type="text" id="ave-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
         <div><div class="flabel">Fecha</div><input type="date" id="ave-fecha" class="finput" onchange="markDirty()"></div>
         <div><div class="flabel">Hora inicio</div><input type="time" id="ave-hora" class="finput" onchange="markDirty()"></div>
@@ -443,7 +443,7 @@ a,button,input,select{touch-action:manipulation}
   <div id="mam-cap" class="ipanel on">
     <div class="cbar">
       <div class="cgrid">
-        <div><div class="flabel">Transecto No.</div><input type="number" id="mam-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Transecto No.</div><input type="number" id="mam-pid" class="finput" value="1" min="1" onchange="onPidChange(this,'mam')"></div>
         <div><div class="flabel">Biólogo</div><input type="text" id="mam-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
         <div><div class="flabel">Fecha</div><input type="date" id="mam-fecha" class="finput" onchange="markDirty()"></div>
         <div><div class="flabel">Hora</div><input type="time" id="mam-hora" class="finput" onchange="markDirty()"></div>
@@ -566,7 +566,7 @@ a,button,input,select{touch-action:manipulation}
   <div id="herp-cap" class="ipanel on">
     <div class="cbar">
       <div class="cgrid">
-        <div><div class="flabel">Sitio VES No.</div><input type="number" id="herp-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Sitio VES No.</div><input type="number" id="herp-pid" class="finput" value="1" min="1" onchange="onPidChange(this,'herp')"></div>
         <div><div class="flabel">Biólogo</div><input type="text" id="herp-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
         <div><div class="flabel">Fecha</div><input type="date" id="herp-fecha" class="finput" onchange="markDirty()"></div>
         <div><div class="flabel">Hora inicio</div><input type="time" id="herp-hora" class="finput" onchange="markDirty()"></div>
@@ -786,6 +786,25 @@ a,button,input,select{touch-action:manipulation}
   </div>
 </div>
 
+<!-- ══════════ SWITCH MODAL ══════════ -->
+<div class="modal-bg" id="switchModal">
+  <div class="modal" style="max-width:480px">
+    <h3 id="switchModalTitle" style="color:var(--night)">🔄 Cambio de sitio/transecto</h3>
+    <div id="switchModalBody" style="font-size:.95rem;line-height:1.7;margin-bottom:16px;color:#333"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-herp" style="grid-column:span 2" onclick="confirmSwitchGrp()">
+        ✅ Guardar y pasar al <span id="swNewLabel"></span>
+      </button>
+      <button class="btn btn-dk" onclick="switchGrpWithoutSave()">
+        ➡️ Cambiar sin guardar
+      </button>
+      <button class="btn" style="background:#888;color:#fff" onclick="cancelSwitchGrp()">
+        ✕ Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- DATALISTS -->
 <datalist id="dlAve">
   <!-- Rapaces -->
@@ -914,6 +933,10 @@ window.onload=()=>{
   } else {
     document.getElementById('saveTime').textContent='Sin datos guardados';
   }
+  // Initialize current pid trackers
+  ['ave','mam','herp'].forEach(g=>{
+    _currentPid[g]=document.getElementById(g+'-pid')?.value||'1';
+  });
 
   // Detect file:// — GPS blocked by Chrome
   if(window.location.protocol==='file:'){
@@ -1698,18 +1721,148 @@ function restoreRow(grp, r){
 function saveGrp(grp){
   savedData[grp]=gatherRows(grp);
   persistToStorage();
+  _currentPid[grp]=document.getElementById(grp+'-pid')?.value||'1';
   showToast(`✅ ${({ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'})[grp]} guardado — ${savedData[grp].length} registros`,'#27ae60');
 }
 
 // ── Clear single group (ask confirmation) ──
 function clearGrp(grp){
   const name={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'}[grp];
-  if(!confirm(`¿Limpiar todos los registros de ${name}?\n\nEsto solo borra la vista actual. Los datos guardados en memoria del navegador se actualizarán la próxima vez que presiones "Guardar".`)) return;
+  if(!confirm(`¿Limpiar todos los registros de ${name}?\n\nLos datos ya guardados se mantienen.`)) return;
   document.getElementById(grp+'-body').innerHTML='';
   document.getElementById(grp+'-empty').style.display='';
   rowCounters[grp]=0;
   updateCounts(grp);
   markDirty();
+}
+
+// ══════════════════════════════════════════════════════
+// SWITCH POINT/TRANSECT PER GROUP
+// ══════════════════════════════════════════════════════
+let _currentPid={ave:'1',mam:'1',herp:'1'};
+let _pendingSwitch=null;
+
+const GRP_NAMES={ave:'Aves · Punto',mam:'Mamíferos · Transecto',herp:'Herpetofauna · Sitio VES'};
+const GRP_COLORS={ave:'var(--ave)',mam:'var(--mam)',herp:'var(--herp)'};
+
+function onPidChange(input,grp){
+  const newPid=input.value;
+  const oldPid=_currentPid[grp]||'1';
+  const hasData=document.querySelectorAll('#'+grp+'-body tr').length>0;
+
+  if(newPid===oldPid||!hasData){
+    _currentPid[grp]=newPid;
+    markDirty();
+    return;
+  }
+
+  input.value=oldPid;
+  _pendingSwitch={grp,newPid};
+
+  const nRows=document.querySelectorAll('#'+grp+'-body tr').length;
+  const alreadySaved=(savedData[grp]||[]).some(r=>r.pid===oldPid);
+  const grpName=GRP_NAMES[grp];
+  const col=GRP_COLORS[grp];
+  const hasPrev=(savedData[grp]||[]).some(r=>r.pid===newPid);
+
+  document.getElementById('switchModalTitle').textContent=`🔄 ${grpName} — cambio de sitio`;
+  document.getElementById('switchModalTitle').style.color=col;
+  document.getElementById('swNewLabel').textContent=`${grpName} No. ${newPid}`;
+  document.getElementById('switchModalBody').innerHTML=
+    `<div style="background:var(--straw-lt);border:2px solid var(--straw);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+       <b style="font-family:var(--fm);font-size:.85rem;color:${col}">${grpName} actual: No. ${oldPid}</b><br>
+       📋 ${nRows} registros capturados${alreadySaved?' · ✅ guardado previo disponible':''}
+     </div>
+     Al confirmar:<br>
+     • Se <b>guardará</b> el <b>${grpName} ${oldPid}</b> automáticamente<br>
+     • La tabla se limpiará a <b>cero</b> para el No. <b>${newPid}</b><br>
+     • T°/H% se reiniciarán para el nuevo sitio<br>
+     • ${hasPrev?`Se cargarán los datos previos del No. ${newPid}`:`El No. ${newPid} comenzará vacío`}`;
+
+  const confirmBtn=document.querySelector('#switchModal .btn-herp');
+  if(confirmBtn) confirmBtn.style.background=col.replace('var(','').replace(')','').trim()&&col;
+  document.getElementById('switchModal').classList.add('show');
+}
+
+function confirmSwitchGrp(){
+  document.getElementById('switchModal').classList.remove('show');
+  const {grp,newPid}=_pendingSwitch;
+  const oldPid=_currentPid[grp];
+
+  // Save current rows for old pid
+  savedData[grp]=gatherRows(grp);
+  persistToStorage();
+  const saved=(savedData[grp]||[]).filter(r=>r.pid===oldPid).length;
+  showToast(`✅ ${GRP_NAMES[grp]} ${oldPid} guardado — ${saved} reg.`,GRP_COLORS[grp]);
+
+  doSwitchGrp(grp,newPid);
+}
+
+function switchGrpWithoutSave(){
+  document.getElementById('switchModal').classList.remove('show');
+  const {grp,newPid}=_pendingSwitch;
+  doSwitchGrp(grp,newPid);
+  showToast(`➡️ Cambiado a ${GRP_NAMES[grp]} ${newPid} sin guardar`,'#555');
+}
+
+function cancelSwitchGrp(){
+  document.getElementById('switchModal').classList.remove('show');
+  if(_pendingSwitch){
+    document.getElementById(_pendingSwitch.grp+'-pid').value=_currentPid[_pendingSwitch.grp];
+  }
+  _pendingSwitch=null;
+}
+
+function doSwitchGrp(grp,newPid){
+  _currentPid[grp]=newPid;
+  document.getElementById(grp+'-pid').value=newPid;
+
+  // Clear table
+  document.getElementById(grp+'-body').innerHTML='';
+  document.getElementById(grp+'-empty').style.display='';
+  rowCounters[grp]=0;
+
+  // Reset station GPS
+  stationGps[grp]={lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null};
+  document.getElementById(grp+'-lat').textContent='Sin captura';
+  document.getElementById(grp+'-lon').textContent='Sin captura';
+  document.getElementById(grp+'-utm').textContent='Sin captura';
+  const gb=document.getElementById(grp+'-gpsbtn');
+  if(gb){gb.textContent='📡 Capturar';gb.style.background='';}
+
+  // Reset T/H fields
+  ['t-ini','h-ini','t-fin','h-fin','hora-fin'].forEach(f=>{
+    const el=document.getElementById(grp+'-'+f); if(el) el.value='';
+  });
+  const ws=document.getElementById(grp+'-weatherStatus'); if(ws) ws.textContent='';
+
+  // Reset hora to now
+  const now=new Date();
+  const nowStr=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const horaEl=document.getElementById(grp+'-hora'); if(horaEl) horaEl.value=nowStr;
+
+  // Reset indices panel
+  const idxEmpty=document.getElementById(grp+'-idx-empty');
+  const idxContent=document.getElementById(grp+'-idx-content');
+  if(idxEmpty) idxEmpty.style.display='';
+  if(idxContent) idxContent.style.display='none';
+  calcResults[grp]=null;
+
+  // Restore saved rows for this pid if they exist
+  const prevRows=(savedData[grp]||[]).filter(r=>r.pid===newPid);
+  if(prevRows.length>0){
+    prevRows.forEach(r=>restoreRow(grp,r));
+    document.getElementById(grp+'-empty').style.display='none';
+    // Restore T/H from first row that has them
+    const thRow=prevRows.find(r=>r.t_ini);
+    if(thRow) setTHGrp(grp,{t_ini:thRow.t_ini,h_ini:thRow.h_ini,t_fin:thRow.t_fin,h_fin:thRow.h_fin,hora_fin:thRow.hora_fin});
+    showToast(`📂 ${GRP_NAMES[grp]} ${newPid} cargado — ${prevRows.length} reg.`,GRP_COLORS[grp]);
+  } else {
+    showToast(`🆕 ${GRP_NAMES[grp]} ${newPid} — nuevo`,GRP_COLORS[grp]);
+  }
+
+  updateCounts(grp); markDirty(); scheduleAutoSave();
+  _pendingSwitch=null;
 }
 
 // ── RESET ALL — double confirmation ──
