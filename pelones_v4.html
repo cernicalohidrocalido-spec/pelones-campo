@@ -177,9 +177,19 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .t-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--rule)}
 .t-row:last-child{border-bottom:none}
 
-/* ── FADE IN ── */
-.fi{animation:fi .28s ease}
-@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* ── ROW ACTIONS ── */
+.row-actions{display:flex;flex-direction:column;gap:3px;min-width:32px}
+.btn-edit{padding:5px 7px;border:none;border-radius:5px;background:rgba(44,110,138,.12);color:var(--sky);font-size:.8rem;cursor:pointer;transition:all .15s;font-weight:600;min-height:36px;min-width:32px;display:flex;align-items:center;justify-content:center}
+.btn-edit:active{transform:scale(.93)}
+.btn-del-row{padding:5px 7px;border:none;border-radius:5px;background:rgba(192,57,43,.1);color:var(--red);font-size:.8rem;cursor:pointer;transition:all .15s;font-weight:600;min-height:36px;min-width:32px;display:flex;align-items:center;justify-content:center}
+.btn-del-row:active{transform:scale(.93)}
+.row-editing td{background:rgba(44,110,138,.05)!important;outline:2px solid var(--sky);outline-offset:-1px}
+.row-editing .ti{border-color:var(--sky)!important;background:#fff}
+.row-editing .tsel{border-color:var(--sky)!important;background:#fff}
+/* Confirm delete inline */
+.del-confirm{display:none;position:absolute;z-index:200;background:#fff;border:2px solid var(--red);border-radius:8px;padding:10px 12px;box-shadow:0 4px 20px rgba(0,0,0,.18);white-space:nowrap;font-size:.85rem;right:0;top:100%;margin-top:4px}
+.del-confirm.show{display:block}
+.td-actions{position:relative;vertical-align:middle}
 
 /* ── RESPONSIVE (landscape tablet) ── */
 @media(max-width:900px){
@@ -1003,7 +1013,19 @@ function addMat(data=null) {
     <td><input class="ti gps-acc" style="width:58px;font-size:.75em;font-family:var(--fm)" value="${acc}" placeholder="m" readonly></td>
     <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'mat')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
     <td><input class="ti obs-mat" value="${d.obs||''}" placeholder="Notas" style="min-width:120px" oninput="scheduleAutoSave()"></td>
-    <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delMat(this)">✕</button></td>`;
+    <td class="td-actions">
+      <div class="row-actions">
+        <button class="btn-edit" onclick="toggleEditRow(this)" title="Editar fila">✏️</button>
+        <button class="btn-del-row" onclick="askDelRow(this,'mat')" title="Eliminar registro">🗑</button>
+      </div>
+      <div class="del-confirm" id="dc_${matRC}">
+        <div style="font-family:var(--fm);font-size:.78rem;color:var(--red);margin-bottom:8px;font-weight:600">¿Eliminar este registro?</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-r btn-sm" style="padding:6px 12px" onclick="confirmDelRow(this,'mat')">Sí, eliminar</button>
+          <button class="btn btn-s btn-sm" style="padding:6px 10px" onclick="cancelDelRow(this)">No</button>
+        </div>
+      </div>
+    </td>`;
   tb.appendChild(tr);
   document.getElementById('eMat').style.display='none';
   if(d.nom) markNom(tr.querySelector('.nom-sel'));
@@ -1036,7 +1058,19 @@ function addPas(data=null) {
       <td>${coordInput('gps-utmn',utmN,'UTM N')}</td>
       <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'pas')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
       <td><input class="ti obs-pas" value="${d.obs||''}" placeholder="Notas" style="min-width:105px" oninput="scheduleAutoSave()"></td>
-      <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delPas(this)">✕</button></td>`;
+      <td class="td-actions">
+        <div class="row-actions">
+          <button class="btn-edit" onclick="toggleEditRow(this)" title="Editar fila">✏️</button>
+          <button class="btn-del-row" onclick="askDelRow(this,'pas')" title="Eliminar registro">🗑</button>
+        </div>
+        <div class="del-confirm">
+          <div style="font-family:var(--fm);font-size:.78rem;color:var(--red);margin-bottom:8px;font-weight:600">¿Eliminar este registro?</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-r btn-sm" style="padding:6px 12px" onclick="confirmDelRow(this,'pas')">Sí, eliminar</button>
+            <button class="btn btn-s btn-sm" style="padding:6px 10px" onclick="cancelDelRow(this)">No</button>
+          </div>
+        </div>
+      </td>`;
     tb.appendChild(tr);
   });
   document.getElementById('ePas').style.display='none';
@@ -1046,6 +1080,61 @@ function addPas(data=null) {
 
 function delMat(btn){ btn.closest('tr').remove(); const tb=document.getElementById('bMat'); if(!tb.children.length) document.getElementById('eMat').style.display=''; renumMat(); updateCounts(); markDirty(); scheduleAutoSave(); }
 function delPas(btn){ btn.closest('tr').remove(); const tb=document.getElementById('bPas'); if(!tb.children.length) document.getElementById('ePas').style.display=''; updateCounts(); markDirty(); scheduleAutoSave(); }
+
+// ── Edit / Delete row actions ──────────────────────────
+function toggleEditRow(btn){
+  const tr=btn.closest('tr');
+  const isEditing=tr.classList.toggle('row-editing');
+  btn.textContent=isEditing?'🔒':'✏️';
+  btn.title=isEditing?'Guardar cambios':'Editar fila';
+  // Enable/disable inputs when toggling (all inputs already editable, just visual)
+  if(isEditing){
+    btn.style.background='rgba(44,110,138,.25)';
+    // Focus first editable input
+    const first=tr.querySelector('.sp-mat,.sp-pas');
+    if(first) first.focus();
+  } else {
+    btn.style.background='';
+    scheduleAutoSave();
+    showToast('✅ Cambios guardados automáticamente','var(--moss)');
+  }
+}
+
+function askDelRow(btn, type){
+  // Close any other open confirm dialogs first
+  document.querySelectorAll('.del-confirm.show').forEach(d=>{
+    if(d!==btn.closest('.td-actions').querySelector('.del-confirm'))
+      d.classList.remove('show');
+  });
+  const td=btn.closest('.td-actions');
+  const dc=td.querySelector('.del-confirm');
+  if(dc) dc.classList.toggle('show');
+}
+
+function confirmDelRow(btn, type){
+  const tr=btn.closest('tr');
+  const tb=document.getElementById(type==='mat'?'bMat':'bPas');
+  tr.style.transition='opacity .2s';
+  tr.style.opacity='0';
+  setTimeout(()=>{
+    tr.remove();
+    if(!tb.children.length)
+      document.getElementById(type==='mat'?'eMat':'ePas').style.display='';
+    if(type==='mat') renumMat();
+    updateCounts(); markDirty(); scheduleAutoSave();
+    showToast('🗑 Registro eliminado','var(--red)');
+  },200);
+}
+
+function cancelDelRow(btn){
+  btn.closest('.del-confirm').classList.remove('show');
+}
+
+// Close confirm dialogs when clicking outside
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.td-actions'))
+    document.querySelectorAll('.del-confirm.show').forEach(d=>d.classList.remove('show'));
+});
 
 function renumMat(){
   document.querySelectorAll('#bMat tr').forEach((tr,i)=>{
@@ -1552,7 +1641,19 @@ function addPasRow(data){
     <td>${coordInput('gps-utmn',utmN,'UTM N')}</td>
     <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'pas')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
     <td><input class="ti obs-pas" value="${data.obs||''}" placeholder="Notas" style="min-width:105px"></td>
-    <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delPas(this)">✕</button></td>`;
+    <td class="td-actions">
+      <div class="row-actions">
+        <button class="btn-edit" onclick="toggleEditRow(this)" title="Editar fila">✏️</button>
+        <button class="btn-del-row" onclick="askDelRow(this,'pas')" title="Eliminar registro">🗑</button>
+      </div>
+      <div class="del-confirm">
+        <div style="font-family:var(--fm);font-size:.78rem;color:var(--red);margin-bottom:8px;font-weight:600">¿Eliminar este registro?</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-r btn-sm" style="padding:6px 12px" onclick="confirmDelRow(this,'pas')">Sí, eliminar</button>
+          <button class="btn btn-s btn-sm" style="padding:6px 10px" onclick="cancelDelRow(this)">No</button>
+        </div>
+      </div>
+    </td>`;
   tb.appendChild(tr);
   document.getElementById('ePas').style.display='none';
 }

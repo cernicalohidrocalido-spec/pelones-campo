@@ -195,6 +195,19 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .modal h3{font-family:var(--fc);font-weight:700;font-size:1.35rem;margin-bottom:16px}
 .modal-coords{font-family:var(--fm);font-size:1rem;line-height:2.1;background:var(--mist);border-radius:8px;padding:13px 16px;margin-bottom:14px}
 
+/* ── ROW ACTIONS ── */
+.row-actions{display:flex;flex-direction:column;gap:3px;min-width:34px}
+.btn-edit{padding:6px 7px;border:none;border-radius:5px;background:rgba(26,82,118,.1);color:var(--ave);font-size:.82rem;cursor:pointer;transition:all .15s;font-weight:600;min-height:38px;min-width:34px;display:flex;align-items:center;justify-content:center}
+.btn-edit:active{transform:scale(.92)}
+.btn-del-row{padding:6px 7px;border:none;border-radius:5px;background:rgba(192,57,43,.1);color:var(--red);font-size:.82rem;cursor:pointer;transition:all .15s;font-weight:600;min-height:38px;min-width:34px;display:flex;align-items:center;justify-content:center}
+.btn-del-row:active{transform:scale(.92)}
+.row-editing td{background:rgba(26,82,118,.05)!important;outline:2px solid var(--ave-md);outline-offset:-1px}
+.row-editing .ti{border-color:var(--ave-md)!important;background:#fff}
+.row-editing .tsel{border-color:var(--ave-md)!important;background:#fff}
+.td-actions{position:relative;vertical-align:middle}
+.del-confirm{display:none;position:absolute;z-index:200;background:#fff;border:2px solid var(--red);border-radius:8px;padding:10px 12px;box-shadow:0 4px 20px rgba(0,0,0,.2);white-space:nowrap;font-size:.85rem;right:0;top:100%;margin-top:4px}
+.del-confirm.show{display:block}
+
 /* ── TSCROLL ── */
 .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 /* ── FI ── */
@@ -1127,9 +1140,19 @@ function addRow(grp){
   let inner='';
   const cn=`<input class="ti cn" value="" placeholder="Nombre común" style="min-width:100px">`;
   const gpsBtn=`<button class="gpsbtn" onclick="captureRowGps(this,'${grp}')">📡 GPS</button>`;
-  const del=`<button class="btn btn-red btn-sm" style="padding:4px 6px" onclick="delRow(this,'${grp}')">✕</button>`;
-  const nCell=`<td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>`;
-  const coord4=coordI('gps-lat')+`</td><td>`+coordI('gps-lon')+`</td><td>`+coordI('gps-utme')+`</td><td>`+coordI('gps-utmn');
+  const del=`<td class="td-actions">
+      <div class="row-actions">
+        <button class="btn-edit" onclick="toggleEditRowF(this)" title="Editar fila">✏️</button>
+        <button class="btn-del-row" onclick="askDelRowF(this,'${grp}')" title="Eliminar registro">🗑</button>
+      </div>
+      <div class="del-confirm">
+        <div style="font-family:var(--fm);font-size:.78rem;color:var(--red);margin-bottom:8px;font-weight:600">¿Eliminar este registro?</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-red btn-sm" style="padding:6px 12px" onclick="confirmDelRowF(this,'${grp}')">Sí, eliminar</button>
+          <button class="btn btn-dk btn-sm" style="padding:6px 10px" onclick="cancelDelRowF(this)">No</button>
+        </div>
+      </div>
+    </td>`;
 
   if(grp==='ave'){
     inner=`${nCell}
@@ -1144,7 +1167,7 @@ function addRow(grp){
       <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   } else if(grp==='mam'){
     inner=`${nCell}
       <td><input class="ti sp" list="dlMam" placeholder="Especie/indet." style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam')"></td>
@@ -1159,7 +1182,7 @@ function addRow(grp){
       <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" placeholder="Descripción indicio" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   } else if(grp==='herp'){
     inner=`${nCell}
       <td><input class="ti sp" list="dlHerp" placeholder="Especie" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp')"></td>
@@ -1174,7 +1197,7 @@ function addRow(grp){
       <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   }
   tr.innerHTML=inner;
   tb.appendChild(tr);
@@ -1660,7 +1683,19 @@ function restoreRow(grp, r){
   const coordC=(cls,val)=>`<input class="ti coord ${val?'':'empty'} ${cls}" value="${val||''}" style="width:93px;font-size:.74em" oninput="markDirty();scheduleAutoSave()">`;
   const hasGps=!!(r.lat&&r.lon);
   const gpsBtn=`<button class="gpsbtn ${hasGps?'ok':''}" onclick="captureRowGps(this,'${grp}')">${hasGps?`✅ ±${r.acc||'?'}m`:'📡 GPS'}</button>`;
-  const del=`<button class="btn btn-red btn-sm" style="padding:4px 6px" onclick="delRow(this,'${grp}')">✕</button>`;
+  const del=`<td class="td-actions">
+      <div class="row-actions">
+        <button class="btn-edit" onclick="toggleEditRowF(this)" title="Editar fila">✏️</button>
+        <button class="btn-del-row" onclick="askDelRowF(this,'${grp}')" title="Eliminar registro">🗑</button>
+      </div>
+      <div class="del-confirm">
+        <div style="font-family:var(--fm);font-size:.78rem;color:var(--red);margin-bottom:8px;font-weight:600">¿Eliminar este registro?</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-red btn-sm" style="padding:6px 12px" onclick="confirmDelRowF(this,'${grp}')">Sí, eliminar</button>
+          <button class="btn btn-dk btn-sm" style="padding:6px 10px" onclick="cancelDelRowF(this)">No</button>
+        </div>
+      </div>
+    </td>`;
   const numCell=`<td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>`;
 
   let inner='';
@@ -1678,7 +1713,7 @@ function restoreRow(grp, r){
       <td>${coordC('gps-utme',r.utmE)}</td><td>${coordC('gps-utmn',r.utmN)}</td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   } else if(grp==='mam'){
     inner=`${numCell}
       <td><input class="ti sp" list="dlMam" value="${r.sp||''}" style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam');scheduleAutoSave()"></td>
@@ -1694,7 +1729,7 @@ function restoreRow(grp, r){
       <td><input class="ti gps-acc" value="${r.acc||''}" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   } else if(grp==='herp'){
     inner=`${numCell}
       <td><input class="ti sp" list="dlHerp" value="${r.sp||''}" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp');scheduleAutoSave()"></td>
@@ -1710,12 +1745,61 @@ function restoreRow(grp, r){
       <td><input class="ti gps-acc" value="${r.acc||''}" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
       <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
-      <td>${del}</td>`;
+      ${del}`;
   }
   tr.innerHTML=inner;
   tb.appendChild(tr);
   if(r.nom) markNomRow(tr.querySelector('.nom-sel'));
 }
+
+// ── Edit / Delete row actions for fauna ──────────────────
+function toggleEditRowF(btn){
+  const tr=btn.closest('tr');
+  const isEditing=tr.classList.toggle('row-editing');
+  btn.textContent=isEditing?'🔒':'✏️';
+  btn.title=isEditing?'Guardar cambios':'Editar fila';
+  if(isEditing){
+    btn.style.background='rgba(26,82,118,.25)';
+    const first=tr.querySelector('.sp,.cn');
+    if(first) first.focus();
+  } else {
+    btn.style.background='';
+    scheduleAutoSave();
+    showToast('✅ Cambios guardados','var(--herp)');
+  }
+}
+
+function askDelRowF(btn, grp){
+  document.querySelectorAll('.del-confirm.show').forEach(d=>{
+    if(d!==btn.closest('.td-actions').querySelector('.del-confirm'))
+      d.classList.remove('show');
+  });
+  const dc=btn.closest('.td-actions').querySelector('.del-confirm');
+  if(dc) dc.classList.toggle('show');
+}
+
+function confirmDelRowF(btn, grp){
+  const tr=btn.closest('tr');
+  const tb=document.getElementById(grp+'-body');
+  tr.style.transition='opacity .2s';
+  tr.style.opacity='0';
+  setTimeout(()=>{
+    tr.remove();
+    if(!tb.children.length) document.getElementById(grp+'-empty').style.display='';
+    updateCounts(grp); markDirty(); scheduleAutoSave();
+    showToast('🗑 Registro eliminado','var(--red)');
+  },200);
+}
+
+function cancelDelRowF(btn){
+  btn.closest('.del-confirm').classList.remove('show');
+}
+
+// Close confirm dialogs on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.td-actions'))
+    document.querySelectorAll('.del-confirm.show').forEach(d=>d.classList.remove('show'));
+});
 
 // ── Save current group manually ──
 function saveGrp(grp){
