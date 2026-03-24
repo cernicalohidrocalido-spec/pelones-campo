@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CYCNA Los Pelones — Fauna v1 GPS</title>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#0f1a0e; --paper:#f2ede3; --card:#fdfaf2;
+  --night:#141e24; --night2:#1c2a33;
+  --ave:#1a5276;   --ave-lt:#d4e6f1;   --ave-md:#2471a3;
+  --mam:#5d4037;   --mam-lt:#efebe9;   --mam-md:#795548;
+  --herp:#1b5e20;  --herp-lt:#e8f5e9;  --herp-md:#388e3c;
+  --straw:#c8a84b; --straw-lt:#f5ecc8;
+  --red:#c0392b;   --red-lt:#fde8e5;
+  --mist:#eaede6;  --rule:#c4cfc0;
+  --gps-on:#27ae60; --gps-wait:#f39c12; --gps-off:#e74c3c;
+  --fm:'IBM Plex Mono',monospace;
+  --fc:'Barlow Condensed',sans-serif;
+  --fs:'Spectral',serif;
+  --fb:'Barlow',sans-serif;
+  /* ── Tablet base ── */
+  --base:18px;
+  --touch:52px;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:rgba(26,82,118,.12)}
+html{font-size:var(--base)}
+body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:100%;-webkit-text-size-adjust:100%}
+
+/* ── MASTHEAD ── */
+.mh{background:var(--night);color:#fff;position:sticky;top:0;z-index:300;box-shadow:0 3px 18px rgba(0,0,0,.4)}
+.mh-inner{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:10px;padding:10px 16px}
+.brand{font-family:var(--fs);font-style:italic;font-size:1.5rem;line-height:1;color:#fff}
+.brand small{display:block;font-family:var(--fm);font-size:.42em;color:rgba(255,255,255,.5);letter-spacing:.07em;font-style:normal;margin-top:2px}
+.proj{display:flex;flex-direction:column;gap:2px}
+.proj-name{font-family:var(--fc);font-weight:700;font-size:1.1rem}
+.proj-sub{font-family:var(--fm);font-size:.7rem;color:rgba(255,255,255,.55)}
+
+/* GPS PILL */
+.gps-pill{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.09);border-radius:24px;padding:8px 14px;cursor:pointer;border:1px solid rgba(255,255,255,.12);min-height:var(--touch);transition:background .2s}
+.gps-pill:active{background:rgba(255,255,255,.2)}
+.gps-dot{width:11px;height:11px;border-radius:50%;background:var(--gps-off);flex-shrink:0;transition:background .3s}
+.gps-dot.on{background:var(--gps-on);box-shadow:0 0 8px var(--gps-on)}
+.gps-dot.wait{background:var(--gps-wait);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.gps-lbl{font-family:var(--fm);font-size:.78rem;color:rgba(255,255,255,.9);white-space:nowrap;font-weight:500}
+.save-ind{width:10px;height:10px;border-radius:50%;background:var(--gps-on);flex-shrink:0;transition:background .3s}
+.save-ind.dirty{background:var(--straw)}
+.hbadge{font-family:var(--fm);font-size:.72rem;font-weight:600;padding:5px 10px;border-radius:4px;background:var(--straw);color:var(--ink)}
+
+/* ── GPS BAR ── */
+.gbar{background:var(--night2);border-bottom:1px solid rgba(255,255,255,.07);padding:12px 16px;display:none}
+.gbar.show{display:block}
+.gg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.gf label{font-family:var(--fm);font-size:.66rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:3px}
+.gf span{font-family:var(--fm);font-size:1rem;color:#fff;font-weight:600}
+.acc-bar{height:4px;border-radius:2px;margin-top:4px;background:var(--gps-on);transition:width .4s,background .4s}
+
+/* ── GROUP TABS ── */
+.gtabs{display:flex;background:var(--ink);border-bottom:3px solid transparent}
+.gtab{flex:1;padding:14px 10px;border:none;background:transparent;color:rgba(255,255,255,.4);font-family:var(--fc);font-weight:700;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-bottom:4px solid transparent;margin-bottom:-3px;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;min-height:var(--touch)}
+.gtab.on{color:#fff;border-bottom-color:var(--ave)}
+.gtab.on.mam{border-bottom-color:var(--mam-md)}
+.gtab.on.herp{border-bottom-color:var(--herp-md)}
+.gtab:active{color:rgba(255,255,255,.8)}
+.gtab-icon{font-size:1.4rem}
+
+/* ── INNER TABS ── */
+.itabs{display:flex;background:rgba(0,0,0,.05);border-bottom:2px solid var(--rule);overflow-x:auto;scrollbar-width:none}
+.itabs::-webkit-scrollbar{display:none}
+.itab{padding:13px 16px;border:none;background:transparent;font-family:var(--fc);font-weight:700;font-size:.95rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent;color:#999;white-space:nowrap;transition:all .2s;min-height:48px}
+.itab.on{color:var(--ave);border-bottom-color:var(--ave)}
+.itab.on.mam{color:var(--mam);border-bottom-color:var(--mam)}
+.itab.on.herp{color:var(--herp);border-bottom-color:var(--herp)}
+
+/* ── CONTROL BAR ── */
+.cbar{padding:12px 16px;border-bottom:2px solid var(--rule);background:var(--mist)}
+.cgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.flabel{font-family:var(--fm);font-size:.7rem;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;display:block}
+.finput{width:100%;padding:12px 13px;border:2px solid var(--rule);border-radius:var(--radius);background:var(--card);font-family:var(--fb);font-size:1rem;color:var(--ink);transition:border-color .2s;min-height:var(--touch)}
+.finput:focus{outline:none;border-color:var(--ave);background:#fff}
+.finput.mam:focus{border-color:var(--mam-md)}
+.finput.herp:focus{border-color:var(--herp-md)}
+
+/* GPS row */
+.gps-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:10px;padding:12px 14px;background:rgba(27,94,32,.06);border:2px dashed rgba(27,94,32,.3);border-radius:var(--radius)}
+.gps-row label{font-family:var(--fm);font-size:.68rem;color:#666;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px}
+.gps-row span{font-family:var(--fm);font-size:.88rem;color:var(--ink);padding:10px 12px;background:var(--card);border:2px solid var(--rule);border-radius:8px;display:block;min-height:44px;font-weight:500}
+
+/* ── MAIN ── */
+.main{padding:14px}
+.gpanel{display:none}.gpanel.on{display:block}
+.ipanel{display:none}.ipanel.on{display:block}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:2px solid var(--rule);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.card-hd{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:2px solid var(--rule);background:rgba(0,0,0,.02)}
+.ctitle{font-family:var(--fc);font-weight:700;font-size:1.05rem;letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--ave)}
+.ctitle.mam{color:var(--mam)}
+.ctitle.herp{color:var(--herp)}
+.chip{font-family:var(--fm);font-size:.67rem;padding:3px 8px;border-radius:4px;font-weight:600}
+.chip-b{background:var(--ave-lt);color:var(--ave-md)}
+.chip-m{background:var(--mam-lt);color:var(--mam-md)}
+.chip-h{background:var(--herp-lt);color:var(--herp-md)}
+.chip-y{background:var(--straw-lt);color:#7a5e1a}
+.chip-r{background:var(--red-lt);color:var(--red)}
+
+/* ── TABLE ── */
+.ft{width:100%;border-collapse:collapse}
+.ft thead tr{background:rgba(0,0,0,.04)}
+.ft th{padding:10px 10px;font-family:var(--fm);font-size:.7rem;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid var(--rule);white-space:nowrap}
+.ft td{border-bottom:1px solid rgba(196,207,192,.5);padding:4px 5px;vertical-align:middle}
+.ft tr:last-child td{border-bottom:none}
+.ft tr:hover td{background:rgba(0,0,0,.02)}
+.ft tr.nom-row td{background:rgba(200,168,75,.09)!important}
+.ti{width:100%;padding:10px 11px;border:2px solid transparent;border-radius:8px;background:var(--mist);font-family:var(--fb);font-size:1rem;color:var(--ink);transition:all .2s;min-height:44px}
+.ti:focus{outline:none;border-color:var(--ave);background:#fff;box-shadow:0 0 0 3px rgba(26,82,118,.12)}
+.ti.coord{font-family:var(--fm);font-size:.8rem;background:#e8f0e8;color:#1a4a1a;font-weight:500}
+.ti.coord.empty{background:var(--mist);color:#aaa;font-weight:400}
+.tsel{width:100%;padding:10px 8px;border:2px solid transparent;border-radius:8px;background:var(--mist);font-size:1rem;color:var(--ink);cursor:pointer;min-height:44px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.tsel:focus{outline:none;border-color:var(--ave)}
+
+/* GPS button */
+.gpsbtn{padding:10px 13px;border:none;border-radius:8px;background:var(--night);color:#fff;font-family:var(--fm);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .18s;display:inline-flex;align-items:center;gap:4px;min-height:44px;min-width:82px;justify-content:center}
+.gpsbtn:active{transform:scale(.93)}
+.gpsbtn.ok{background:var(--gps-on)}
+.gpsbtn.wait{background:var(--gps-wait);animation:blink 1s infinite}
+
+/* ── ACTION BUTTONS ── */
+.btn{padding:14px 12px;border:none;border-radius:var(--radius);font-family:var(--fc);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .18s;white-space:nowrap;min-height:var(--touch)}
+.btn:active{transform:scale(.96)}
+.btn-ave{background:var(--ave);color:#fff}
+.btn-mam{background:var(--mam);color:#fff}
+.btn-herp{background:var(--herp);color:#fff}
+.btn-exp{background:var(--straw);color:var(--ink)}
+.btn-red{background:var(--red);color:#fff}
+.btn-dk{background:#444;color:#fff}
+.btn-sm{padding:10px 13px;font-size:.84rem;min-height:42px}
+.btns{display:grid;gap:10px;margin-bottom:14px}
+.btns-2{grid-template-columns:1fr 1fr}
+.btns-3{grid-template-columns:repeat(3,1fr)}
+.btns-4{grid-template-columns:repeat(4,1fr)}
+
+/* ── STATS BAR ── */
+.sbar{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.sc{background:var(--card);border:2px solid var(--rule);border-radius:var(--radius);padding:12px 10px;text-align:center}
+.snum{font-family:var(--fc);font-weight:900;font-size:2.4rem;line-height:1}
+.slbl{font-family:var(--fm);font-size:.67rem;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+.snum.ave{color:var(--ave)}
+.snum.mam{color:var(--mam)}
+.snum.herp{color:var(--herp)}
+
+/* ── RESULTS ── */
+.idx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
+.icard{border:2px solid var(--rule);border-radius:var(--radius);padding:13px;background:var(--mist)}
+.iname{font-family:var(--fm);font-size:.7rem;font-weight:600;color:#777;margin-bottom:3px}
+.iformula{font-family:var(--fm);font-size:.62rem;color:#b8b8b8;margin-bottom:5px}
+.ival{font-family:var(--fc);font-weight:900;font-size:2.1rem;line-height:1}
+.ival.ave{color:var(--ave)}
+.ival.mam{color:var(--mam)}
+.ival.herp{color:var(--herp)}
+.iinterp{font-size:.78rem;color:#666;margin-top:4px}
+.ivi-bar{height:5px;border-radius:3px;margin-top:4px;opacity:.4}
+.res-hd{padding:11px 14px;font-family:var(--fc);font-weight:700;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;color:#fff}
+
+/* ── INTERACTION MATRIX ── */
+.matrix{border-collapse:collapse;width:100%}
+.matrix th,.matrix td{border:1px solid var(--rule);padding:9px 10px;font-size:.88rem}
+.matrix th{background:var(--mist);font-family:var(--fm);font-size:.7rem}
+.matrix .hi{background:#fde8e5;color:var(--red);font-weight:700}
+.matrix .med{background:var(--straw-lt);color:#7a5e1a;font-weight:700}
+.matrix .lo{background:#e8f5e9;color:var(--herp)}
+
+/* ── BANNER ── */
+.banner{border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start;font-size:.9rem;line-height:1.5}
+.banner.ave{background:rgba(26,82,118,.07);border:2px solid rgba(26,82,118,.22)}
+.banner.mam{background:rgba(93,64,55,.07);border:2px solid rgba(93,64,55,.22)}
+.banner.herp{background:rgba(27,94,32,.07);border:2px solid rgba(27,94,32,.22)}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:36px 20px;color:#ccc}
+.empty i{font-size:2.8rem;display:block;margin-bottom:10px}
+.empty-t{font-family:var(--fc);font-size:1.1rem;letter-spacing:.04em}
+
+/* ── NOM alert ── */
+.nom-alert{background:var(--straw-lt);border:2px solid var(--straw);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;font-size:.9rem;line-height:1.55}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:500;display:none;align-items:center;justify-content:center;padding:18px}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 10px 42px rgba(0,0,0,.48)}
+.modal h3{font-family:var(--fc);font-weight:700;font-size:1.35rem;margin-bottom:16px}
+.modal-coords{font-family:var(--fm);font-size:1rem;line-height:2.1;background:var(--mist);border-radius:8px;padding:13px 16px;margin-bottom:14px}
+
+/* ── TSCROLL ── */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* ── FI ── */
+.fi{animation:fi .28s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .cgrid{grid-template-columns:1fr 1fr 1fr}
+  .btns-4{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+  .cgrid{grid-template-columns:1fr 1fr}
+  .sbar{grid-template-columns:repeat(3,1fr)}
+  .idx-grid{grid-template-columns:1fr 1fr}
+  .gps-row{grid-template-columns:1fr 1fr}
+  .gg{grid-template-columns:1fr 1fr}
+  .mh-inner{grid-template-columns:auto 1fr auto auto}
+}
+@media(max-width:440px){
+  :root{--base:17px}
+  .sbar{grid-template-columns:1fr 1fr}
+  .btns-3{grid-template-columns:1fr 1fr}
+  .gtab span{display:none}
+}
+/* Tap delay fix */
+a,button,input,select{touch-action:manipulation}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--mist)}
+::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ MASTHEAD ══════════ -->
+<header class="mh">
+  <div class="mh-inner">
+    <div class="brand">Fauna<small>CYCNA Los Pelones</small></div>
+    <div class="proj">
+      <span class="proj-name">Diagnóstico Fauna Silvestre · GPS</span>
+      <span class="proj-sub">Ojocaliente, Zac. · Bitácora 32/DG-0043/03/26</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="save-ind" id="saveDot" title="Estado de guardado"></div>
+        <span id="saveTime" style="font-family:var(--fm);font-size:.58em;color:rgba(255,255,255,.5)">Cargando...</span>
+      </div>
+      <button onclick="resetAll()" style="border:none;background:rgba(192,57,43,.7);color:#fff;font-family:var(--fm);font-size:.6em;font-weight:600;padding:3px 8px;border-radius:3px;cursor:pointer;letter-spacing:.04em" title="Borrar todos los datos">🗑 RESET TODO</button>
+    </div>
+    <div class="gps-pill" onclick="toggleGBar()">
+      <div class="gps-dot" id="gpsDot"></div>
+      <span class="gps-lbl" id="gpsLbl">GPS</span>
+    </div>
+    <span class="hbadge" id="hBadge">Aves</span>
+  </div>
+</header>
+
+<!-- ══════════ GPS BAR ══════════ -->
+<div class="gbar" id="gBar">
+  <div class="gg">
+    <div class="gf"><label>Latitud WGS84</label><span id="gLat">—</span></div>
+    <div class="gf"><label>Longitud WGS84</label><span id="gLon">—</span></div>
+    <div class="gf"><label>Altitud (m)</label><span id="gAlt">—</span></div>
+    <div class="gf"><label>Precisión (m)</label><span id="gAcc">—</span><div class="acc-bar" id="accBar" style="width:0"></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;align-items:center">
+    <div class="gf"><label>UTM Este (X)</label><span id="gUtmE">—</span></div>
+    <div class="gf"><label>UTM Norte (Y)</label><span id="gUtmN">—</span></div>
+    <div class="gf"><label>Zona UTM</label><span id="gZone">—</span></div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-herp btn-sm" onclick="startGps()">📡 Iniciar</button>
+      <button class="btn btn-dk btn-sm" onclick="stopGps()">⏹</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ GROUP TABS ══════════ -->
+<div class="gtabs">
+  <button class="gtab on" onclick="switchGroup('ave',this)"><span class="gtab-icon">🦅</span><span>Aves</span></button>
+  <button class="gtab mam" onclick="switchGroup('mam',this)"><span class="gtab-icon">🦌</span><span>Mamíferos</span></button>
+  <button class="gtab herp" onclick="switchGroup('herp',this)"><span class="gtab-icon">🦎</span><span>Herpetofauna</span></button>
+  <button class="gtab" style="border-bottom-color:#555" onclick="switchGroup('res',this)"><span class="gtab-icon">📊</span><span>Resultados</span></button>
+  <button class="gtab" style="border-bottom-color:#555" onclick="switchGroup('exp',this)"><span class="gtab-icon">💾</span><span>Exportar</span></button>
+</div>
+
+<div class="main">
+
+<!-- ══════════════════════════════════════════════════
+     GROUP: AVES
+══════════════════════════════════════════════════ -->
+<div id="grp-ave" class="gpanel on">
+
+  <!-- INNER TABS -->
+  <div class="itabs">
+    <button class="itab on" onclick="switchInner('ave','cap',this)">📋 Captura</button>
+    <button class="itab" onclick="switchInner('ave','idx',this)">📊 Índices</button>
+    <button class="itab" onclick="switchInner('ave','nom',this)">🌿 NOM-059</button>
+  </div>
+
+  <!-- INNER: CAPTURA -->
+  <div id="ave-cap" class="ipanel on">
+    <!-- Control bar -->
+    <div class="cbar">
+      <div class="cgrid">
+        <div><div class="flabel">Punto de conteo No.</div><input type="number" id="ave-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Biólogo</div><input type="text" id="ave-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
+        <div><div class="flabel">Fecha</div><input type="date" id="ave-fecha" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Hora inicio</div><input type="time" id="ave-hora" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Condición climática</div>
+          <select id="ave-clima" class="finput" onchange="markDirty()">
+            <option>Despejado</option><option>Nublado parcial</option><option>Viento suave</option><option>Viento fuerte</option></select></div>
+      </div>
+      <!-- GPS de punto -->
+      <div class="gps-row">
+        <div><label>📍 Lat. punto de conteo</label><span id="ave-lat">Sin captura</span></div>
+        <div><label>📍 Lon. punto de conteo</label><span id="ave-lon">Sin captura</span></div>
+        <div><label>UTM E / N / Zona</label><span id="ave-utm" style="font-family:var(--fm);font-size:.74em">Sin captura</span></div>
+        <button class="btn btn-ave btn-sm" onclick="captureStationGps('ave')" id="ave-gpsbtn">📡 Capturar punto</button>
+      </div>
+      <!-- T° / H% row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:10px;padding:10px 14px;background:rgba(26,82,118,.06);border:2px dashed rgba(26,82,118,.3);border-radius:var(--radius)">
+        <div><label class="flabel" style="color:var(--ave)">🌡 T° inicio (°C)</label><input type="number" id="ave-t-ini" class="finput" placeholder="ej. 22.5" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--ave)">💧 H% inicio (%)</label><input type="number" id="ave-h-ini" class="finput" placeholder="ej. 45" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--ave)">🌡 T° final (°C)</label><input type="number" id="ave-t-fin" class="finput" placeholder="ej. 28.0" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--ave)">💧 H% final (%)</label><input type="number" id="ave-h-fin" class="finput" placeholder="ej. 38" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--ave)">⏱ Hora final</label><input type="time" id="ave-hora-fin" class="finput" onchange="markDirty();scheduleAutoSave()"></div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn btn-sm" style="background:var(--ave-md);color:#fff" onclick="fetchWeatherGrp('ave')" id="ave-btnWeather">🌐 API clima</button>
+          <div id="ave-weatherStatus" style="font-family:var(--fm);font-size:.62rem;color:var(--ave);text-align:center;min-height:16px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner ave"><span style="font-size:1.5em;line-height:1">🦅</span>
+      <div><b style="font-family:var(--fm);font-size:.86em;color:var(--ave)">Puntos de Conteo de Radio Fijo — 20 min/punto · 7:00–10:30 AM</b><br>
+      <span style="color:#666">Registrar individuos vistos y escuchados · Búsqueda específica de rapaces y Turdus rufopalliatus</span></div>
+    </div>
+
+    <!-- GPS file:// warning — compact collapsible button -->
+    <div id="gpsFileWarn" style="display:none;margin-bottom:12px">
+      <button onclick="toggleGpsWarn()" style="display:flex;align-items:center;gap:8px;background:rgba(192,57,43,.1);border:2px solid var(--red);border-radius:8px;padding:11px 14px;cursor:pointer;width:100%;text-align:left;font-family:var(--fb);font-size:.92rem;color:var(--red);font-weight:600;transition:background .2s;min-height:48px" id="gpsWarnBtn">
+        <span style="font-size:1.2em;flex-shrink:0">⚠️</span>
+        <span style="flex:1">GPS no disponible — archivo abierto localmente (file://)</span>
+        <span id="gpsWarnChevron" style="font-family:var(--fm);font-size:.75rem;opacity:.6;flex-shrink:0">▼ ver solución</span>
+      </button>
+      <div id="gpsWarnDetail" style="display:none;background:rgba(192,57,43,.06);border:2px solid var(--red);border-top:none;border-radius:0 0 8px 8px;padding:14px 16px;font-size:.88rem;line-height:1.8">
+        <b>Solución rápida — tablet Android:</b><br>
+        1. Instale <b>Simple HTTP Server</b> desde Play Store (gratis)<br>
+        2. Apunte a la carpeta del archivo y toque <b>Start</b><br>
+        3. Chrome → <code style="background:rgba(0,0,0,.08);padding:2px 7px;border-radius:3px;font-family:var(--fm);font-size:.85em">http://localhost:8080/pelones_fauna_v1.html</code><br><br>
+        <b>Windows — CMD en la carpeta:</b><br>
+        <code style="background:rgba(0,0,0,.08);padding:3px 8px;border-radius:3px;font-family:var(--fm);font-size:.85em;display:inline-block;margin:2px 0">python -m http.server 8080</code><br>
+        Luego → <code style="background:rgba(0,0,0,.08);padding:2px 7px;border-radius:3px;font-family:var(--fm);font-size:.85em">http://localhost:8080/pelones_fauna_v1.html</code>
+      </div>
+    </div>
+
+    <div class="sbar">
+      <div class="sc"><div class="snum ave" id="ave-cnt-reg">0</div><div class="slbl">Registros</div></div>
+      <div class="sc"><div class="snum ave" id="ave-cnt-sp">0</div><div class="slbl">Especies</div></div>
+      <div class="sc"><div class="snum ave" id="ave-cnt-ind">0</div><div class="slbl">Individuos</div></div>
+      <div class="sc"><div class="snum ave" id="ave-cnt-nom">0</div><div class="slbl">NOM-059</div></div>
+      <div class="sc"><div class="snum ave" id="ave-cnt-gps">0</div><div class="slbl">Pts GPS</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="ctitle">🦅 Registros avifauna <span class="chip chip-b">Punto conteo · Radio fijo</span></div>
+        <span id="ave-reg-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--ave)">0 reg.</span>
+      </div>
+      <div class="tscroll"><table class="ft">
+        <thead><tr>
+          <th style="width:24px">#</th>
+          <th style="min-width:180px">Especie</th>
+          <th style="min-width:110px">Nombre común</th>
+          <th style="min-width:65px">N ind.</th>
+          <th style="min-width:80px">Detección</th>
+          <th style="min-width:70px">Distancia</th>
+          <th style="min-width:75px">Estrato</th>
+          <th style="min-width:85px">Conducta</th>
+          <th style="min-width:70px">NOM-059</th>
+          <th style="min-width:95px">Latitud GPS</th>
+          <th style="min-width:95px">Longitud GPS</th>
+          <th style="min-width:75px">UTM E</th>
+          <th style="min-width:75px">UTM N</th>
+          <th style="min-width:60px">📡</th>
+          <th style="min-width:120px">Observaciones</th>
+          <th style="width:26px"></th>
+        </tr></thead>
+        <tbody id="ave-body"></tbody>
+      </table></div>
+      <div id="ave-empty" class="empty"><i>🦅</i><div class="empty-t">Sin registros · Agregar observación</div></div>
+    </div>
+
+    <div class="btns btns-4">
+      <button class="btn btn-ave" onclick="addRow('ave')">+ Agregar observación</button>
+      <button class="btn btn-ave" style="opacity:.8" onclick="calcIndices('ave')">📊 Calcular índices</button>
+      <button class="btn btn-dk" onclick="saveGrp('ave')">💾 Guardar</button>
+      <button class="btn btn-red btn-sm" onclick="clearGrp('ave')">🗑 Limpiar</button>
+    </div>
+  </div><!-- /ave-cap -->
+
+  <!-- INNER: ÍNDICES -->
+  <div id="ave-idx" class="ipanel">
+    <div id="ave-idx-empty" class="empty" style="margin:20px 0"><i>📊</i><div class="empty-t">Captura datos y presiona "Calcular índices"</div></div>
+    <div id="ave-idx-content" style="display:none">
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--ave)">📊 Índices de Biodiversidad — Avifauna</div>
+        <div class="idx-grid" id="ave-idx-grid"></div>
+      </div>
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--ave)">🦅 Tabla de Abundancia Relativa</div>
+        <div class="tscroll"><table class="ft" id="ave-abund-t">
+          <thead><tr><th>Especie</th><th>N</th><th>Frec. ptos</th><th>Abd. rel%</th><th>Frec. rel%</th><th>IVI (ave)</th><th>NOM</th></tr></thead>
+          <tbody id="ave-abund-b"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="res-hd" style="background:#444">📋 Interpretación</div>
+        <div id="ave-interp" style="padding:12px;font-size:.86em;line-height:1.7;color:#333"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INNER: NOM -->
+  <div id="ave-nom" class="ipanel">
+    <div class="nom-alert"><b style="font-family:var(--fm);font-size:.84em">⚠️ NOM-059-SEMARNAT-2010 — Aves protegidas</b><br>
+    Incluye Aquila chrysaetos (P), Falco mexicanus (A), Turdus rufopalliatus (Pr) y otras rapaces. Coordenadas GPS obligatorias.</div>
+    <div class="card"><div class="card-hd"><div class="ctitle">🌿 Aves bajo protección</div><span id="ave-nom-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--ave)">0 reg.</span></div>
+    <div class="tscroll"><table class="ft"><thead><tr><th>Especie</th><th>Nombre común</th><th>Categoría</th><th>N ind.</th><th>Puntos</th><th>Lat prom.</th><th>Lon prom.</th></tr></thead>
+    <tbody id="ave-nom-body"><tr><td colspan="7" class="empty" style="padding:18px;text-align:center">Sin registros NOM-059</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+</div><!-- /grp-ave -->
+
+<!-- ══════════════════════════════════════════════════
+     GROUP: MAMÍFEROS
+══════════════════════════════════════════════════ -->
+<div id="grp-mam" class="gpanel">
+  <div class="itabs">
+    <button class="itab mam on" onclick="switchInner('mam','cap',this)">📋 Captura</button>
+    <button class="itab mam" onclick="switchInner('mam','idx',this)">📊 Índices</button>
+    <button class="itab mam" onclick="switchInner('mam','nom',this)">🌿 NOM-059</button>
+  </div>
+
+  <div id="mam-cap" class="ipanel on">
+    <div class="cbar">
+      <div class="cgrid">
+        <div><div class="flabel">Transecto No.</div><input type="number" id="mam-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Biólogo</div><input type="text" id="mam-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
+        <div><div class="flabel">Fecha</div><input type="date" id="mam-fecha" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Hora</div><input type="time" id="mam-hora" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Zona (camino/lindero)</div>
+          <select id="mam-zona" class="finput" onchange="markDirty()">
+            <option>Camino autorizado</option><option>Lindero área explotación</option><option>Área conservación</option><option>Zona caminos (19.99 ha)</option></select></div>
+      </div>
+      <div class="gps-row">
+        <div><label>📍 Lat. inicio transecto</label><span id="mam-lat">Sin captura</span></div>
+        <div><label>📍 Lon. inicio transecto</label><span id="mam-lon">Sin captura</span></div>
+        <div><label>UTM E / N / Zona</label><span id="mam-utm" style="font-family:var(--fm);font-size:.74em">Sin captura</span></div>
+        <button class="btn btn-mam btn-sm" onclick="captureStationGps('mam')" id="mam-gpsbtn">📡 Capturar inicio</button>
+      </div>
+      <!-- T° / H% row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:10px;padding:10px 14px;background:rgba(93,64,55,.06);border:2px dashed rgba(93,64,55,.3);border-radius:var(--radius)">
+        <div><label class="flabel" style="color:var(--mam)">🌡 T° inicio (°C)</label><input type="number" id="mam-t-ini" class="finput" placeholder="ej. 22.5" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--mam)">💧 H% inicio (%)</label><input type="number" id="mam-h-ini" class="finput" placeholder="ej. 45" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--mam)">🌡 T° final (°C)</label><input type="number" id="mam-t-fin" class="finput" placeholder="ej. 28.0" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--mam)">💧 H% final (%)</label><input type="number" id="mam-h-fin" class="finput" placeholder="ej. 38" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--mam)">⏱ Hora final</label><input type="time" id="mam-hora-fin" class="finput" onchange="markDirty();scheduleAutoSave()"></div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn btn-sm" style="background:var(--mam-md);color:#fff" onclick="fetchWeatherGrp('mam')" id="mam-btnWeather">🌐 API clima</button>
+          <div id="mam-weatherStatus" style="font-family:var(--fm);font-size:.62rem;color:var(--mam);text-align:center;min-height:16px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner mam"><span style="font-size:1.5em;line-height:1">🦌</span>
+      <div><b style="font-family:var(--fm);font-size:.86em;color:var(--mam)">Transectos de Indicios — 500 m lineales · Caminos y linderos</b><br>
+      <span style="color:#666">Registrar huellas, excretas, rascaderos, restos de presas · Fotografía + coordenadas UTM obligatorias</span></div>
+    </div>
+
+    <div class="sbar">
+      <div class="sc"><div class="snum mam" id="mam-cnt-reg">0</div><div class="slbl">Indicios</div></div>
+      <div class="sc"><div class="snum mam" id="mam-cnt-sp">0</div><div class="slbl">Especies</div></div>
+      <div class="sc"><div class="snum mam" id="mam-cnt-ind">0</div><div class="slbl">Individuos</div></div>
+      <div class="sc"><div class="snum mam" id="mam-cnt-nom">0</div><div class="slbl">NOM-059</div></div>
+      <div class="sc"><div class="snum mam" id="mam-cnt-gps">0</div><div class="slbl">Pts GPS</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="ctitle mam">🦌 Registros mastofauna <span class="chip chip-m">Transecto indicios · 500 m</span></div>
+        <span id="mam-reg-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--mam)">0 ind.</span>
+      </div>
+      <div class="tscroll"><table class="ft">
+        <thead><tr>
+          <th style="width:24px">#</th>
+          <th style="min-width:175px">Especie (si identificable)</th>
+          <th style="min-width:110px">Nombre común</th>
+          <th style="min-width:95px">Tipo de indicio</th>
+          <th style="min-width:55px">N ind.</th>
+          <th style="min-width:80px">Dist. transecto (m)</th>
+          <th style="min-width:75px">Sustrato</th>
+          <th style="min-width:70px">NOM-059</th>
+          <th style="min-width:80px">Foto No.</th>
+          <th style="min-width:95px">Latitud GPS</th>
+          <th style="min-width:95px">Longitud GPS</th>
+          <th style="min-width:75px">UTM E</th>
+          <th style="min-width:75px">UTM N</th>
+          <th style="min-width:60px">Acc.(m)</th>
+          <th style="min-width:60px">📡</th>
+          <th style="min-width:120px">Descripción del indicio</th>
+          <th style="width:26px"></th>
+        </tr></thead>
+        <tbody id="mam-body"></tbody>
+      </table></div>
+      <div id="mam-empty" class="empty"><i>🦌</i><div class="empty-t">Sin indicios registrados</div></div>
+    </div>
+
+    <div class="btns btns-4">
+      <button class="btn btn-mam" onclick="addRow('mam')">+ Agregar indicio</button>
+      <button class="btn btn-mam" style="opacity:.8" onclick="calcIndices('mam')">📊 Calcular índices</button>
+      <button class="btn btn-dk" onclick="saveGrp('mam')">💾 Guardar</button>
+      <button class="btn btn-red btn-sm" onclick="clearGrp('mam')">🗑 Limpiar</button>
+    </div>
+  </div>
+
+  <div id="mam-idx" class="ipanel">
+    <div id="mam-idx-empty" class="empty" style="margin:20px 0"><i>📊</i><div class="empty-t">Captura datos y presiona "Calcular índices"</div></div>
+    <div id="mam-idx-content" style="display:none">
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--mam)">📊 Índices de Biodiversidad — Mastofauna</div>
+        <div class="idx-grid" id="mam-idx-grid"></div>
+      </div>
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--mam)">🦌 Frecuencia de Indicios por Especie</div>
+        <div class="tscroll"><table class="ft" id="mam-abund-t">
+          <thead><tr><th>Especie</th><th>N indicios</th><th>Frec. trans.</th><th>Abd. rel%</th><th>Frec. rel%</th><th>IVI (mam)</th><th>NOM</th></tr></thead>
+          <tbody id="mam-abund-b"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="res-hd" style="background:#444">📋 Interpretación</div>
+        <div id="mam-interp" style="padding:12px;font-size:.86em;line-height:1.7;color:#333"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mam-nom" class="ipanel">
+    <div class="nom-alert"><b style="font-family:var(--fm);font-size:.84em">⚠️ NOM-059-SEMARNAT-2010 — Mamíferos protegidos</b><br>
+    Incluye Lepus callotis (A), Taxidea taxus (A), Lynx rufus (Pr), Odocoileus virginianus (Pr) y otros. GPS obligatorio en cada indicio.</div>
+    <div class="card"><div class="card-hd"><div class="ctitle mam">🌿 Mamíferos bajo protección</div><span id="mam-nom-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--mam)">0 reg.</span></div>
+    <div class="tscroll"><table class="ft"><thead><tr><th>Especie</th><th>Nombre común</th><th>Categoría</th><th>N indicios</th><th>Transectos</th><th>Lat prom.</th><th>Lon prom.</th></tr></thead>
+    <tbody id="mam-nom-body"><tr><td colspan="7" class="empty" style="padding:18px;text-align:center">Sin registros</td></tr></tbody>
+    </table></div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     GROUP: HERPETOFAUNA
+══════════════════════════════════════════════════ -->
+<div id="grp-herp" class="gpanel">
+  <div class="itabs">
+    <button class="itab herp on" onclick="switchInner('herp','cap',this)">📋 Captura</button>
+    <button class="itab herp" onclick="switchInner('herp','idx',this)">📊 Índices</button>
+    <button class="itab herp" onclick="switchInner('herp','nom',this)">🌿 NOM-059</button>
+  </div>
+
+  <div id="herp-cap" class="ipanel on">
+    <div class="cbar">
+      <div class="cgrid">
+        <div><div class="flabel">Sitio VES No.</div><input type="number" id="herp-pid" class="finput" value="1" min="1" onchange="markDirty()"></div>
+        <div><div class="flabel">Biólogo</div><input type="text" id="herp-bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
+        <div><div class="flabel">Fecha</div><input type="date" id="herp-fecha" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Hora inicio</div><input type="time" id="herp-hora" class="finput" onchange="markDirty()"></div>
+        <div><div class="flabel">Período</div>
+          <select id="herp-periodo" class="finput" onchange="markDirty()">
+            <option>Diurno (reptiles · mediodía)</option><option>Crepuscular</option><option>Nocturno (anfibios)</option></select></div>
+      </div>
+      <div class="gps-row">
+        <div><label>📍 Lat. sitio VES</label><span id="herp-lat">Sin captura</span></div>
+        <div><label>📍 Lon. sitio VES</label><span id="herp-lon">Sin captura</span></div>
+        <div><label>UTM E / N / Zona</label><span id="herp-utm" style="font-family:var(--fm);font-size:.74em">Sin captura</span></div>
+        <button class="btn btn-herp btn-sm" onclick="captureStationGps('herp')" id="herp-gpsbtn">📡 Capturar sitio</button>
+      </div>
+      <!-- T° / H% row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:10px;padding:10px 14px;background:rgba(27,94,32,.06);border:2px dashed rgba(27,94,32,.3);border-radius:var(--radius)">
+        <div><label class="flabel" style="color:var(--herp)">🌡 T° inicio (°C)</label><input type="number" id="herp-t-ini" class="finput" placeholder="ej. 22.5" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--herp)">💧 H% inicio (%)</label><input type="number" id="herp-h-ini" class="finput" placeholder="ej. 45" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--herp)">🌡 T° final (°C)</label><input type="number" id="herp-t-fin" class="finput" placeholder="ej. 28.0" step="0.1" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--herp)">💧 H% final (%)</label><input type="number" id="herp-h-fin" class="finput" placeholder="ej. 38" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()"></div>
+        <div><label class="flabel" style="color:var(--herp)">⏱ Hora final</label><input type="time" id="herp-hora-fin" class="finput" onchange="markDirty();scheduleAutoSave()"></div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn btn-sm" style="background:var(--herp-md);color:#fff" onclick="fetchWeatherGrp('herp')" id="herp-btnWeather">🌐 API clima</button>
+          <div id="herp-weatherStatus" style="font-family:var(--fm);font-size:.62rem;color:var(--herp);text-align:center;min-height:16px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner herp"><span style="font-size:1.5em;line-height:1">🦎</span>
+      <div><b style="font-family:var(--fm);font-size:.86em;color:var(--herp)">VES — Búsqueda Libre y Restringida por Tiempo</b><br>
+      <span style="color:#666">Microhábitats: bajo rocas, grietas, base de matorral crasicaule · Diurno: reptiles · Nocturno: anfibios en zonas húmedas</span></div>
+    </div>
+
+    <div class="sbar">
+      <div class="sc"><div class="snum herp" id="herp-cnt-reg">0</div><div class="slbl">Registros</div></div>
+      <div class="sc"><div class="snum herp" id="herp-cnt-sp">0</div><div class="slbl">Especies</div></div>
+      <div class="sc"><div class="snum herp" id="herp-cnt-ind">0</div><div class="slbl">Individuos</div></div>
+      <div class="sc"><div class="snum herp" id="herp-cnt-nom">0</div><div class="slbl">NOM-059</div></div>
+      <div class="sc"><div class="snum herp" id="herp-cnt-gps">0</div><div class="slbl">Pts GPS</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="ctitle herp">🦎 Registros herpetofauna <span class="chip chip-h">VES · Búsqueda dirigida</span></div>
+        <span id="herp-reg-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--herp)">0 reg.</span>
+      </div>
+      <div class="tscroll"><table class="ft">
+        <thead><tr>
+          <th style="width:24px">#</th>
+          <th style="min-width:175px">Especie</th>
+          <th style="min-width:110px">Nombre común</th>
+          <th style="min-width:60px">Clase</th>
+          <th style="min-width:55px">N ind.</th>
+          <th style="min-width:90px">Microhábitat</th>
+          <th style="min-width:80px">Conducta</th>
+          <th style="min-width:70px">NOM-059</th>
+          <th style="min-width:80px">Foto No.</th>
+          <th style="min-width:95px">Latitud GPS</th>
+          <th style="min-width:95px">Longitud GPS</th>
+          <th style="min-width:75px">UTM E</th>
+          <th style="min-width:75px">UTM N</th>
+          <th style="min-width:60px">Acc.(m)</th>
+          <th style="min-width:60px">📡</th>
+          <th style="min-width:120px">Observaciones</th>
+          <th style="width:26px"></th>
+        </tr></thead>
+        <tbody id="herp-body"></tbody>
+      </table></div>
+      <div id="herp-empty" class="empty"><i>🦎</i><div class="empty-t">Sin registros · Agregar observación</div></div>
+    </div>
+
+    <div class="btns btns-4">
+      <button class="btn btn-herp" onclick="addRow('herp')">+ Agregar registro</button>
+      <button class="btn btn-herp" style="opacity:.8" onclick="calcIndices('herp')">📊 Calcular índices</button>
+      <button class="btn btn-dk" onclick="saveGrp('herp')">💾 Guardar</button>
+      <button class="btn btn-red btn-sm" onclick="clearGrp('herp')">🗑 Limpiar</button>
+    </div>
+  </div>
+
+  <div id="herp-idx" class="ipanel">
+    <div id="herp-idx-empty" class="empty" style="margin:20px 0"><i>📊</i><div class="empty-t">Captura datos y presiona "Calcular índices"</div></div>
+    <div id="herp-idx-content" style="display:none">
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--herp)">📊 Índices de Biodiversidad — Herpetofauna</div>
+        <div class="idx-grid" id="herp-idx-grid"></div>
+      </div>
+      <div class="card" style="margin-bottom:11px">
+        <div class="res-hd" style="background:var(--herp)">🦎 Abundancia Relativa por Especie</div>
+        <div class="tscroll"><table class="ft" id="herp-abund-t">
+          <thead><tr><th>Especie</th><th>Clase</th><th>N</th><th>Frec. sitios</th><th>Abd. rel%</th><th>Frec. rel%</th><th>IVI</th><th>NOM</th></tr></thead>
+          <tbody id="herp-abund-b"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="res-hd" style="background:#444">📋 Interpretación</div>
+        <div id="herp-interp" style="padding:12px;font-size:.86em;line-height:1.7;color:#333"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="herp-nom" class="ipanel">
+    <div class="nom-alert"><b style="font-family:var(--fm);font-size:.84em">⚠️ NOM-059-SEMARNAT-2010 — Herpetofauna protegida</b><br>
+    Incluye Crotalus spp. (Pr), Gopherus flavomarginatus (P), Kinosternon integrum (A), Phrynosoma orbiculare (A) y otras. GPS obligatorio.</div>
+    <div class="card"><div class="card-hd"><div class="ctitle herp">🌿 Herpetofauna bajo protección</div><span id="herp-nom-cnt" style="font-family:var(--fm);font-size:.73em;color:var(--herp)">0 reg.</span></div>
+    <div class="tscroll"><table class="ft"><thead><tr><th>Especie</th><th>Nombre común</th><th>Clase</th><th>Categoría</th><th>N ind.</th><th>Sitios</th><th>Lat prom.</th><th>Lon prom.</th></tr></thead>
+    <tbody id="herp-nom-body"><tr><td colspan="8" class="empty" style="padding:18px;text-align:center">Sin registros</td></tr></tbody>
+    </table></div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     GROUP: RESULTADOS GLOBALES
+══════════════════════════════════════════════════ -->
+<div id="grp-res" class="gpanel">
+  <!-- Summary across groups -->
+  <div class="card" style="margin-bottom:11px">
+    <div class="res-hd" style="background:var(--night)">📊 Resumen Diagnóstico — Los 3 grupos de vertebrados</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--rule)">
+      <div style="padding:14px;border-right:1px solid var(--rule)">
+        <div style="font-family:var(--fc);font-weight:700;color:var(--ave);font-size:1em;margin-bottom:9px">🦅 AVES</div>
+        <div id="res-ave-summ" style="font-size:.84em;line-height:1.9;color:#555">Sin datos aún</div>
+      </div>
+      <div style="padding:14px;border-right:1px solid var(--rule)">
+        <div style="font-family:var(--fc);font-weight:700;color:var(--mam);font-size:1em;margin-bottom:9px">🦌 MAMÍFEROS</div>
+        <div id="res-mam-summ" style="font-size:.84em;line-height:1.9;color:#555">Sin datos aún</div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-family:var(--fc);font-weight:700;color:var(--herp);font-size:1em;margin-bottom:9px">🦎 HERPETOFAUNA</div>
+        <div id="res-herp-summ" style="font-size:.84em;line-height:1.9;color:#555">Sin datos aún</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interaction matrix -->
+  <div class="card" style="margin-bottom:11px">
+    <div class="res-hd" style="background:#3d5a3e">🔗 Matriz de Interacción Proyecto–Biodiversidad</div>
+    <div style="padding:12px;overflow-x:auto">
+      <table class="matrix" id="interMatrix">
+        <thead><tr>
+          <th>Grupo</th><th>Impacto potencial</th><th>Intensidad</th><th>Especies clave afectadas</th><th>Medida de mitigación</th>
+        </tr></thead>
+        <tbody id="interBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NOM global -->
+  <div class="card">
+    <div class="res-hd" style="background:var(--straw);color:var(--ink)">⚠️ Registro Consolidado NOM-059-SEMARNAT-2010 — Todos los grupos</div>
+    <div class="tscroll"><table class="ft" id="nomGlobal">
+      <thead><tr><th>Grupo</th><th>Especie</th><th>Nombre común</th><th>Categoría</th><th>N reg.</th><th>Sitios</th><th>Lat prom.</th><th>Lon prom.</th></tr></thead>
+      <tbody id="nomGlobalBody"></tbody>
+    </table></div>
+    <div id="nomGlobalEmpty" class="empty" style="padding:22px"><i>🌿</i><div class="empty-t">Sin registros NOM-059</div></div>
+  </div>
+
+  <div class="btns btns-2" style="margin-top:12px">
+    <button class="btn btn-ave" onclick="buildResults()">🔄 Actualizar resultados</button>
+    <button class="btn btn-exp" onclick="switchGroup('exp',document.querySelectorAll('.gtab')[4])">💾 Exportar todo</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     GROUP: EXPORTAR
+══════════════════════════════════════════════════ -->
+<div id="grp-exp" class="gpanel">
+  <div class="card">
+    <div class="res-hd" style="background:var(--night)">💾 Exportar datos de fauna a Excel</div>
+    <div style="padding:13px;display:grid;gap:9px">
+      <div style="background:var(--mist);border-radius:6px;padding:10px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--ave);font-weight:600;margin-bottom:7px">🦅 AVES</div>
+        <div class="btns btns-3" style="margin:0">
+          <button class="btn btn-ave btn-sm" onclick="exportGrp('ave','raw')">📄 Datos crudos</button>
+          <button class="btn btn-ave btn-sm" style="opacity:.8" onclick="exportGrp('ave','analysis')">📊 Índices</button>
+          <button class="btn btn-exp btn-sm" onclick="exportGrp('ave','full')">📦 Completo</button>
+        </div>
+      </div>
+      <div style="background:var(--mist);border-radius:6px;padding:10px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--mam);font-weight:600;margin-bottom:7px">🦌 MAMÍFEROS</div>
+        <div class="btns btns-3" style="margin:0">
+          <button class="btn btn-mam btn-sm" onclick="exportGrp('mam','raw')">📄 Datos crudos</button>
+          <button class="btn btn-mam btn-sm" style="opacity:.8" onclick="exportGrp('mam','analysis')">📊 Índices</button>
+          <button class="btn btn-exp btn-sm" onclick="exportGrp('mam','full')">📦 Completo</button>
+        </div>
+      </div>
+      <div style="background:var(--mist);border-radius:6px;padding:10px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--herp);font-weight:600;margin-bottom:7px">🦎 HERPETOFAUNA</div>
+        <div class="btns btns-3" style="margin:0">
+          <button class="btn btn-herp btn-sm" onclick="exportGrp('herp','raw')">📄 Datos crudos</button>
+          <button class="btn btn-herp btn-sm" style="opacity:.8" onclick="exportGrp('herp','analysis')">📊 Índices</button>
+          <button class="btn btn-exp btn-sm" onclick="exportGrp('herp','full')">📦 Completo</button>
+        </div>
+      </div>
+      <div style="background:var(--night);border-radius:6px;padding:11px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--straw);font-weight:600;margin-bottom:8px">📦 LIBRO MAESTRO FAUNA</div>
+        <button class="btn btn-exp" style="width:100%" onclick="exportAll()">💾 Exportar todos los grupos — Diagnóstico Completo</button>
+      </div>
+      <div style="background:var(--ave-lt);border-radius:6px;padding:10px;font-size:.79em;color:var(--ave)">
+        <b style="font-family:var(--fm)">Hojas incluidas:</b><br>
+        Aves_Registros · Aves_Indices · Mamiferos_Registros · Mamiferos_Indices · Herp_Registros · Herp_Indices · NOM059_Global · GPS_Todos · Interacciones · Resumen_Global
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- GPS MODAL -->
+<div class="modal-bg" id="gpsMod">
+  <div class="modal">
+    <h3>📡 Capturando coordenadas GPS</h3>
+    <div class="modal-coords" id="modCoords">Obteniendo señal...<br>Por favor espere.</div>
+    <div id="modAcc" style="font-family:var(--fm);font-size:.77em;color:#888;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-herp" style="flex:1" onclick="confirmGps()">✅ Usar coordenadas</button>
+      <button class="btn btn-dk" style="flex:0 0 auto" onclick="cancelGps()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DATALISTS -->
+<datalist id="dlAve">
+  <!-- Rapaces -->
+  <option value="Aquila chrysaetos"><option value="Buteo jamaicensis"><option value="Buteo swainsoni">
+  <option value="Parabuteo unicinctus"><option value="Falco mexicanus"><option value="Falco peregrinus">
+  <option value="Falco sparverius"><option value="Accipiter cooperii"><option value="Circus hudsonius">
+  <!-- Paseriformes zona árida -->
+  <option value="Turdus rufopalliatus"><option value="Melanotis caerulescens"><option value="Mimus polyglottos">
+  <option value="Campylorhynchus brunneicapillus"><option value="Toxostoma curvirostre"><option value="Toxostoma ocellatum">
+  <option value="Amphispiza bilineata"><option value="Pipilo maculatus"><option value="Cardinalis cardinalis">
+  <option value="Pyrocephalus rubinus"><option value="Myiarchus tyrannulus"><option value="Tyrannus vociferans">
+  <!-- Pícidos y otros -->
+  <option value="Melanerpes formicivorus"><option value="Colaptes auratus"><option value="Geococcyx californianus">
+  <option value="Zenaida macroura"><option value="Columbina inca"><option value="Columba livia">
+  <option value="Gymnorhinus cyanocephalus"><option value="Corvus corax">
+</datalist>
+<datalist id="dlMam">
+  <option value="Lepus callotis"><option value="Lepus californicus"><option value="Sylvilagus floridanus">
+  <option value="Odocoileus virginianus"><option value="Antilocapra americana">
+  <option value="Lynx rufus"><option value="Puma concolor"><option value="Taxidea taxus">
+  <option value="Mephitis mephitis"><option value="Spilogale putorius"><option value="Canis latrans">
+  <option value="Urocyon cinereoargenteus"><option value="Bassariscus astutus">
+  <option value="Dipodomys spp."><option value="Neotoma albigula"><option value="Sigmodon hispidus">
+  <option value="Peromyscus spp."><option value="Thomomys bottae"><option value="Spermophilus spilosoma">
+  <option value="Indeterminado — huella"><option value="Indeterminado — excreta">
+</datalist>
+<datalist id="dlHerp">
+  <!-- Reptiles zona árida -->
+  <option value="Crotalus molossus"><option value="Crotalus scutulatus"><option value="Crotalus atrox">
+  <option value="Pituophis catenifer"><option value="Masticophis flagellum"><option value="Lampropeltis getula">
+  <option value="Salvadora hexalepis"><option value="Hypsiglena torquata">
+  <option value="Sceloporus grammicus"><option value="Sceloporus scalaris"><option value="Sceloporus undulatus">
+  <option value="Phrynosoma orbiculare"><option value="Phrynosoma cornutum">
+  <option value="Cnemidophorus inornatus"><option value="Aspidoscelis gularis">
+  <option value="Gopherus flavomarginatus">
+  <!-- Anfibios -->
+  <option value="Anaxyrus cognatus"><option value="Anaxyrus punctatus"><option value="Spea multiplicata">
+  <option value="Kinosternon integrum"><option value="Scaphiopus couchii">
+</datalist>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DICTIONARIES
+// ══════════════════════════════════════════════════════
+const AvesCN={
+  'aquila chrysaetos':'Águila real','buteo jamaicensis':'Aguililla cola roja',
+  'buteo swainsoni':'Aguililla de Swainson','parabuteo unicinctus':'Aguililla rojinegra',
+  'falco mexicanus':'Halcón de pradera','falco peregrinus':'Halcón peregrino',
+  'falco sparverius':'Cernícalo americano','accipiter cooperii':'Gavilán de Cooper',
+  'circus hudsonius':'Gavilán rastrero','turdus rufopalliatus':'Mirlo de dorso rufo',
+  'melanotis caerulescens':'Mulato azul','mimus polyglottos':'Cenzontle norteño',
+  'campylorhynchus brunneicapillus':'Matraca del desierto','toxostoma curvirostre':'Cuitlacoche pico curvo',
+  'geococcyx californianus':'Correcaminos norteño','corvus corax':'Cuervo común',
+  'zenaida macroura':'Huilota común','columbina inca':'Tórtola cola larga',
+};
+const MamCN={
+  'lepus callotis':'Liebre de cola blanca','lepus californicus':'Liebre cola negra',
+  'sylvilagus floridanus':'Conejo castellano','odocoileus virginianus':'Venado cola blanca',
+  'antilocapra americana':'Berrendo','lynx rufus':'Gato montés','puma concolor':'Puma',
+  'taxidea taxus':'Tlalcoyote','mephitis mephitis':'Zorrillo listado','canis latrans':'Coyote',
+  'urocyon cinereoargenteus':'Zorra gris','bassariscus astutus':'Cacomixtle norteño',
+};
+const HerpCN={
+  'crotalus molossus':'Cascabel cola negra','crotalus scutulatus':'Cascabel de Mojave',
+  'crotalus atrox':'Cascabel diamante occidental','pituophis catenifer':'Culebra toro',
+  'masticophis flagellum':'Culebra látigo','sceloporus grammicus':'Lagartija escamosa',
+  'phrynosoma orbiculare':'Camaleón de montaña','phrynosoma cornutum':'Camaleón texano',
+  'cnemidophorus inornatus':'Lagartija corredora','gopherus flavomarginatus':'Tortuga del desierto',
+  'anaxyrus cognatus':'Sapo de las praderas','anaxyrus punctatus':'Sapo de puntos rojos',
+  'spea multiplicata':'Sapo cavador de México','kinosternon integrum':'Tortuga pecho quebrado',
+};
+const NOM={
+  // Aves
+  'aquila chrysaetos':'P','falco mexicanus':'A','falco peregrinus':'A',
+  'buteo swainsoni':'Pr','parabuteo unicinctus':'Pr','turdus rufopalliatus':'Pr',
+  'melanotis caerulescens':'Pr','geococcyx californianus':'Pr',
+  // Mamíferos
+  'lepus callotis':'A','antilocapra americana':'A','taxidea taxus':'A',
+  'puma concolor':'Pr','lynx rufus':'Pr','odocoileus virginianus':'Pr',
+  // Herpetofauna
+  'crotalus molossus':'Pr','crotalus scutulatus':'Pr','crotalus atrox':'Pr',
+  'phrynosoma orbiculare':'A','phrynosoma cornutum':'Pr','gopherus flavomarginatus':'P',
+  'kinosternon integrum':'A','spea multiplicata':'Pr',
+};
+const NOM_LBL={'P':'Peligro extinción','A':'Amenazada','Pr':'Prot. especial'};
+
+const DET_AVE=['Visual directo','Canto/llamado','Vuelo','Nido','Pluma/resto'];
+const DIST_AVE=['<25 m','25–50 m','50–100 m','>100 m'];
+const ESTRATO_AVE=['Suelo','Arbustivo bajo','Arbustivo alto','Aéreo bajo','Aéreo alto'];
+const COND_AVE=['Forrajeo','Percha','Vuelo territorial','Anidación','Migración'];
+const INDICIO=['Huella','Excreta/heces','Rascadero/madriguera','Restos de presa','Pelo/pluma','Observación directa','Vocalizacion'];
+const SUSTRATO=['Suelo arenoso','Suelo arcilloso','Grava','Roca','Camino','Vegetación'];
+const MICROHAB=['Bajo roca','Grieta','Base matorral','Suelo expuesto','Roca expuesta','Zona húmeda','Hojarasca'];
+const COND_HERP=['Termorregulando','Forrajeo','Refugio','Desplazamiento','Estivo'];
+const CLASE_HERP=['Reptil','Anfibio'];
+
+// ══════════════════════════════════════════════════════
+// GPS STATE
+// ══════════════════════════════════════════════════════
+let gpsWatchId=null, currentPos=null, captureTarget=null, capturedPos=null;
+let stationGps={ave:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null},
+                mam:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null},
+                herp:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null}};
+let isDirty=false;
+let savedData={ave:[],mam:[],herp:[]};
+let calcResults={ave:null,mam:null,herp:null};
+let rowCounters={ave:0,mam:0,herp:0};
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+window.onload=()=>{
+  const now=new Date();
+  ['ave','mam','herp'].forEach(g=>{
+    const f=document.getElementById(g+'-fecha');
+    const h=document.getElementById(g+'-hora');
+    if(f) f.valueAsDate=now;
+    if(h) h.value=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  });
+
+  const restored=loadFromStorage();
+  if(restored){
+    // Count restored records
+    const total=['ave','mam','herp'].reduce((s,g)=>(savedData[g]||[]).length+s,0);
+    if(total>0) setTimeout(()=>showToast(`📂 ${total} registros restaurados desde la última sesión`,'var(--ave)'),600);
+  } else {
+    document.getElementById('saveTime').textContent='Sin datos guardados';
+  }
+
+  // Detect file:// — GPS blocked by Chrome
+  if(window.location.protocol==='file:'){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+    setGpsSt('off','No disponible (file://)');
+    return; // skip GPS auto-start
+  }
+
+  if(navigator.geolocation){
+    navigator.permissions?.query({name:'geolocation'}).then(r=>{if(r.state==='granted') startGps();}).catch(()=>{});
+  }
+};
+
+// ══════════════════════════════════════════════════════
+// GPS
+// ══════════════════════════════════════════════════════
+function startGps(){
+  if(window.location.protocol==='file:'){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+    showToast('⚠️ GPS no disponible en file:// — use servidor local','var(--gps-off)');
+    return;
+  }
+  if(!navigator.geolocation){alert('Este dispositivo no soporta GPS / geolocalización.');return;}
+  setGpsSt('wait','Buscando...');
+  showToast('📡 Activando GPS...','var(--night)');
+  gpsWatchId=navigator.geolocation.watchPosition(onGpsOk,onGpsErr,{enableHighAccuracy:true,timeout:30000,maximumAge:2000});
+}
+function stopGps(){if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}setGpsSt('off','Detenido');}
+function onGpsOk(pos){
+  currentPos=pos;
+  const{latitude:lat,longitude:lon,altitude:alt,accuracy:acc}=pos.coords;
+  const utm=ll2utm(lat,lon);
+  document.getElementById('gLat').textContent=lat.toFixed(7);
+  document.getElementById('gLon').textContent=lon.toFixed(7);
+  document.getElementById('gAlt').textContent=alt?alt.toFixed(1)+' m':'—';
+  document.getElementById('gAcc').textContent=acc.toFixed(1)+' m';
+  document.getElementById('gUtmE').textContent=utm.E.toFixed(1);
+  document.getElementById('gUtmN').textContent=utm.N.toFixed(1);
+  document.getElementById('gZone').textContent=utm.zone;
+  const pct=Math.max(0,100-Math.min(acc,100));
+  const ab=document.getElementById('accBar');
+  ab.style.width=pct+'%';
+  ab.style.background=acc<5?'var(--gps-on)':acc<15?'var(--gps-wait)':'var(--gps-off)';
+  setGpsSt('on',`±${acc.toFixed(0)}m`);
+  if(document.getElementById('gpsMod').classList.contains('show')){
+    capturedPos={lat,lon,alt,acc,utmE:utm.E,utmN:utm.N,zone:utm.zone,time:new Date().toLocaleTimeString()};
+    document.getElementById('modCoords').innerHTML=`<b>Lat:</b> ${lat.toFixed(7)}<br><b>Lon:</b> ${lon.toFixed(7)}<br><b>Alt:</b> ${alt?alt.toFixed(1)+' m':'—'}<br><b>UTM E:</b> ${utm.E.toFixed(1)}<br><b>UTM N:</b> ${utm.N.toFixed(1)}<br><b>Zona:</b> ${utm.zone}`;
+    document.getElementById('modAcc').textContent=`Precisión: ±${acc.toFixed(1)} m · ${acc<5?'✅ Excelente':acc<15?'⚠️ Aceptable':'❌ Baja — espere'}`;
+  }
+}
+function onGpsErr(e){
+  const m={
+    1:'Permiso denegado. Active la ubicación en Configuración → Chrome → Ubicación.',
+    2:'Señal GPS no disponible. Salga al exterior e intente de nuevo.',
+    3:'Tiempo de espera agotado. Verifique que el GPS esté activo.'
+  };
+  const msg=m[e.code]||'Error GPS desconocido.';
+  setGpsSt('off',msg.split('.')[0]);
+  showToast('❌ '+msg,'var(--gps-off)');
+  if(e.code===1){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+  }
+}
+function setGpsSt(s,t){const d=document.getElementById('gpsDot'),l=document.getElementById('gpsLbl');d.className='gps-dot'+(s==='on'?' on':s==='wait'?' wait':'');l.textContent=t;}
+function toggleGBar(){document.getElementById('gBar').classList.toggle('show');}
+function toggleGpsWarn(){
+  const detail=document.getElementById('gpsWarnDetail');
+  const chev=document.getElementById('gpsWarnChevron');
+  const open=detail.style.display==='none';
+  detail.style.display=open?'block':'none';
+  chev.textContent=open?'▲ cerrar':'▼ ver solución';
+}
+
+function captureStationGps(grp){
+  captureTarget={type:'station',grp};
+  document.getElementById('gpsMod').classList.add('show');
+  document.getElementById('modCoords').textContent='Obteniendo señal GPS...\nEspere.';
+  capturedPos=null;
+  if(!gpsWatchId) startGps();
+  if(currentPos) onGpsOk(currentPos);
+}
+function captureRowGps(btn,grp){
+  captureTarget={type:'row',grp,row:btn.closest('tr')};
+  document.getElementById('gpsMod').classList.add('show');
+  document.getElementById('modCoords').textContent='Obteniendo señal GPS...\nEspere.';
+  capturedPos=null;
+  if(!gpsWatchId) startGps();
+  if(currentPos) onGpsOk(currentPos);
+}
+function cancelGps(){document.getElementById('gpsMod').classList.remove('show');captureTarget=null;}
+function confirmGps(){
+  if(!capturedPos){alert('Sin señal GPS. Espere.');return;}
+  document.getElementById('gpsMod').classList.remove('show');
+  const p=capturedPos;
+  if(captureTarget.type==='station'){
+    const g=captureTarget.grp;
+    stationGps[g]={lat:p.lat,lon:p.lon,utmE:p.utmE,utmN:p.utmN,zone:p.zone,alt:p.alt,acc:p.acc};
+    document.getElementById(g+'-lat').textContent=p.lat.toFixed(7);
+    document.getElementById(g+'-lon').textContent=p.lon.toFixed(7);
+    document.getElementById(g+'-utm').textContent=`${p.utmE.toFixed(1)} / ${p.utmN.toFixed(1)} (${p.zone})`;
+    const b=document.getElementById(g+'-gpsbtn');
+    b.textContent=`✅ ±${p.acc.toFixed(0)}m`;
+    b.style.background='var(--gps-on)';
+    // immediately persist GPS station coordinates
+    savedData[g]=savedData[g]||[];
+    persistToStorage();
+    showToast(`📍 GPS ${({ave:'punto',mam:'transecto',herp:'sitio VES'})[g]} guardado · ±${p.acc.toFixed(1)}m`,'var(--gps-on)');
+  } else {
+    const row=captureTarget.row;
+    const set=(cls,val)=>{const el=row.querySelector(cls);if(el){el.value=val;el.classList.remove('empty');}};
+    set('.gps-lat',p.lat.toFixed(7));
+    set('.gps-lon',p.lon.toFixed(7));
+    set('.gps-utme',p.utmE.toFixed(1));
+    set('.gps-utmn',p.utmN.toFixed(1));
+    set('.gps-acc',p.acc.toFixed(1));
+    const btn=row.querySelector('.gpsbtn');
+    if(btn){btn.textContent=`✅ ±${p.acc.toFixed(0)}m`;btn.className='gpsbtn ok';}
+    updateCounts(captureTarget.grp);
+    scheduleAutoSave();
+  }
+  markDirty();
+}
+
+// UTM conversion
+function ll2utm(lat,lon){
+  const a=6378137,f=1/298.257223563,b=a*(1-f),e2=1-(b*b)/(a*a),k0=0.9996;
+  const zN=Math.floor((lon+180)/6)+1,l0=(zN-1)*6-180+3;
+  const lr=lat*Math.PI/180,lr0=l0*Math.PI/180,dL=(lon-l0)*Math.PI/180;
+  const N=a/Math.sqrt(1-e2*Math.sin(lr)**2),T=Math.tan(lr)**2,C=e2/(1-e2)*Math.cos(lr)**2,A_=Math.cos(lr)*dL;
+  const e4=e2*e2,e6=e4*e2;
+  const M=a*((1-e2/4-3*e4/64-5*e6/256)*lr-(3*e2/8+3*e4/32+45*e6/1024)*Math.sin(2*lr)+(15*e4/256+45*e6/1024)*Math.sin(4*lr)-(35*e6/3072)*Math.sin(6*lr));
+  const E=k0*N*(A_+(1-T+C)*A_**3/6+(5-18*T+T**2+72*C-58*e2/(1-e2))*A_**5/120)+500000;
+  let No=k0*(M+N*Math.tan(lr)*(A_**2/2+(5-T+9*C+4*C**2)*A_**4/24+(61-58*T+T**2+600*C-330*e2/(1-e2))*A_**6/720));
+  if(lat<0) No+=10000000;
+  return{E,N:No,zone:`${zN}${lat>=0?'N':'S'}`};
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function switchGroup(g,btn){
+  document.querySelectorAll('.gpanel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.gtab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('grp-'+g).classList.add('on');
+  btn.classList.add('on');
+  const lbl={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna',res:'Resultados',exp:'Exportar'};
+  document.getElementById('hBadge').textContent=lbl[g]||g;
+  if(g==='res') buildResults();
+}
+function switchInner(grp,panel,btn){
+  document.querySelectorAll(`#grp-${grp} .ipanel`).forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll(`#grp-${grp} .itab`).forEach(b=>b.classList.remove('on'));
+  document.getElementById(grp+'-'+panel).classList.add('on');
+  btn.classList.add('on');
+  if(panel==='nom') renderNom(grp);
+}
+
+// ══════════════════════════════════════════════════════
+// ROW BUILDERS
+// ══════════════════════════════════════════════════════
+function selOpts(arr,sel=''){return arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join('');}
+function nomSel(sel='',grp=''){
+  const groups={
+    ave:[['P','Aquila chrysaetos (P)'],['A','Falco mexicanus (A)'],['A','Falco peregrinus (A)'],['Pr','Buteo swainsoni (Pr)'],['Pr','Turdus rufopalliatus (Pr)'],['Pr','Melanotis caerulescens (Pr)'],['Pr','Geococcyx californianus (Pr)']],
+    mam:[['A','Lepus callotis (A)'],['A','Antilocapra americana (A)'],['A','Taxidea taxus (A)'],['Pr','Puma concolor (Pr)'],['Pr','Lynx rufus (Pr)'],['Pr','Odocoileus virginianus (Pr)']],
+    herp:[['P','Gopherus flavomarginatus (P)'],['A','Phrynosoma orbiculare (A)'],['A','Kinosternon integrum (A)'],['Pr','Crotalus molossus (Pr)'],['Pr','Crotalus scutulatus (Pr)'],['Pr','Spea multiplicata (Pr)']],
+  };
+  const opts=['<option value="">— No NOM —</option>','<optgroup label="P — Peligro">'];
+  const grpOpts=groups[grp]||[...groups.ave,...groups.mam,...groups.herp];
+  ['P','A','Pr'].forEach(cat=>{
+    const matching=grpOpts.filter(x=>x[0]===cat);
+    if(matching.length){opts.push(`<optgroup label="${cat} — ${NOM_LBL[cat]}">`);matching.forEach(([v,l])=>opts.push(`<option value="${v}" ${sel===v?'selected':''}>${l}</option>`));opts.push('</optgroup>');}
+  });
+  return opts.join('');
+}
+function coordI(cls,val=''){return `<input class="ti coord ${val?'':'empty'} ${cls}" value="${val}" style="width:93px;font-size:.74em" oninput="markDirty()">`;}
+
+function addRow(grp){
+  const bodyId=grp+'-body', emptyId=grp+'-empty';
+  const tb=document.getElementById(bodyId);
+  rowCounters[grp]++;
+  const n=tb.children.length+1;
+  const tr=document.createElement('tr'); tr.className='fi';
+
+  let inner='';
+  const cn=`<input class="ti cn" value="" placeholder="Nombre común" style="min-width:100px">`;
+  const gpsBtn=`<button class="gpsbtn" onclick="captureRowGps(this,'${grp}')">📡 GPS</button>`;
+  const del=`<button class="btn btn-red btn-sm" style="padding:4px 6px" onclick="delRow(this,'${grp}')">✕</button>`;
+  const nCell=`<td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>`;
+  const coord4=coordI('gps-lat')+`</td><td>`+coordI('gps-lon')+`</td><td>`+coordI('gps-utme')+`</td><td>`+coordI('gps-utmn');
+
+  if(grp==='ave'){
+    inner=`${nCell}
+      <td><input class="ti sp" list="dlAve" placeholder="Especie" style="min-width:170px" oninput="autoFill(this,'ave');markDirty();updateCounts('ave')"></td>
+      <td>${cn}</td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:55px" oninput="updateCounts('ave');markDirty()"></td>
+      <td><select class="tsel det" onchange="markDirty()">${selOpts(DET_AVE)}</select></td>
+      <td><select class="tsel dist" onchange="markDirty()">${selOpts(DIST_AVE)}</select></td>
+      <td><select class="tsel est" onchange="markDirty()">${selOpts(ESTRATO_AVE)}</select></td>
+      <td><select class="tsel cond" onchange="markDirty()">${selOpts(COND_AVE)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','ave')}</select></td>
+      <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  } else if(grp==='mam'){
+    inner=`${nCell}
+      <td><input class="ti sp" list="dlMam" placeholder="Especie/indet." style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam')"></td>
+      <td>${cn}</td>
+      <td><select class="tsel indicio" onchange="markDirty()">${selOpts(INDICIO)}</select></td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('mam');markDirty()"></td>
+      <td><input type="number" class="ti dist" value="0" min="0" step="1" style="width:65px" oninput="markDirty()"></td>
+      <td><select class="tsel sust" onchange="markDirty()">${selOpts(SUSTRATO)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','mam')}</select></td>
+      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px"></td>
+      <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
+      <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" placeholder="Descripción indicio" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  } else if(grp==='herp'){
+    inner=`${nCell}
+      <td><input class="ti sp" list="dlHerp" placeholder="Especie" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp')"></td>
+      <td>${cn}</td>
+      <td><select class="tsel clase" onchange="markDirty()">${selOpts(CLASE_HERP)}</select></td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('herp');markDirty()"></td>
+      <td><select class="tsel microhab" onchange="markDirty()">${selOpts(MICROHAB)}</select></td>
+      <td><select class="tsel cond" onchange="markDirty()">${selOpts(COND_HERP)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','herp')}</select></td>
+      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px"></td>
+      <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
+      <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  }
+  tr.innerHTML=inner;
+  tb.appendChild(tr);
+  document.getElementById(emptyId).style.display='none';
+  tr.querySelector('.sp')?.focus();
+  updateCounts(grp); markDirty(); scheduleAutoSave();
+}
+
+function delRow(btn,grp){
+  btn.closest('tr').remove();
+  const tb=document.getElementById(grp+'-body');
+  if(!tb.children.length) document.getElementById(grp+'-empty').style.display='';
+  renumRows(grp); updateCounts(grp); markDirty(); scheduleAutoSave();
+}
+function renumRows(grp){document.querySelectorAll('#'+grp+'-body tr').forEach((tr,i)=>{const c=tr.cells[0];if(c)c.textContent=String(i+1).padStart(2,'0');});}
+
+function autoFill(inp,grp){
+  const tr=inp.closest('tr'), k=inp.value.trim().toLowerCase();
+  const dicts={ave:AvesCN,mam:MamCN,herp:HerpCN};
+  const cn=tr.querySelector('.cn'); if(cn&&!cn.value&&dicts[grp][k]) cn.value=dicts[grp][k];
+  const nom=tr.querySelector('.nom-sel');
+  if(nom&&NOM[k]){for(let o of nom.options){if(o.value===NOM[k]){nom.value=NOM[k];break;}}markNomRow(nom);}
+}
+function markNomRow(sel){const tr=sel.closest('tr');if(sel.value)tr.classList.add('nom-row');else tr.classList.remove('nom-row');}
+
+// ══════════════════════════════════════════════════════
+// COUNTS
+// ══════════════════════════════════════════════════════
+function updateCounts(grp){
+  const rows=document.querySelectorAll('#'+grp+'-body tr');
+  let spSet=new Set(), nomC=0, totalInd=0, gpsC=0;
+  rows.forEach(r=>{
+    const sp=r.querySelector('.sp')?.value.trim(); if(sp) spSet.add(sp.toLowerCase());
+    if(r.querySelector('.nom-sel')?.value) nomC++;
+    totalInd+=parseInt(r.querySelector('.nind')?.value||0);
+    if(r.querySelector('.gps-lat')?.value) gpsC++;
+  });
+  if(stationGps[grp]?.lat) gpsC++;
+  document.getElementById(grp+'-cnt-reg').textContent=rows.length;
+  document.getElementById(grp+'-cnt-sp').textContent=spSet.size;
+  document.getElementById(grp+'-cnt-ind').textContent=totalInd;
+  document.getElementById(grp+'-cnt-nom').textContent=nomC;
+  document.getElementById(grp+'-cnt-gps').textContent=gpsC;
+  document.getElementById(grp+'-reg-cnt').textContent=rows.length+' reg.';
+}
+
+// ══════════════════════════════════════════════════════
+// CALCULATE INDICES
+// ══════════════════════════════════════════════════════
+function calcIndices(grp){
+  const rows=document.querySelectorAll('#'+grp+'-body tr');
+  if(!rows.length){alert('Sin registros para analizar.');return;}
+
+  let spMap={};
+  let totalN=0, totalInd=0;
+  const pid=document.getElementById(grp+'-pid').value;
+
+  rows.forEach(r=>{
+    const sp=r.querySelector('.sp')?.value.trim()||'Indeterminado';
+    const n=parseInt(r.querySelector('.nind')?.value||1);
+    const nom=r.querySelector('.nom-sel')?.value||'';
+    const cn=r.querySelector('.cn')?.value||'';
+    const lat=r.querySelector('.gps-lat')?.value||'';
+    const lon=r.querySelector('.gps-lon')?.value||'';
+    if(!spMap[sp]) spMap[sp]={sp,cn,n:0,nom,lat,lon,pids:new Set()};
+    spMap[sp].n+=n; spMap[sp].pids.add(pid);
+    if(!spMap[sp].lat&&lat) spMap[sp].lat=lat;
+    if(!spMap[sp].lon&&lon) spMap[sp].lon=lon;
+    totalN++; totalInd+=n;
+  });
+
+  const S=Object.keys(spMap).length;
+  let H=0,f1=0,f2=0,sumN2=0;
+  const spRows=Object.values(spMap).map(s=>{
+    const pi=s.n/totalInd; if(pi>0) H-=pi*Math.log(pi);
+    if(s.n===1)f1++; if(s.n===2)f2++;
+    sumN2+=s.n*(s.n-1);
+    const D_rel=(s.n/totalInd)*100;
+    const F_rel=(s.pids.size/1)*100; // single station/transect session
+    const IVI=D_rel+F_rel;
+    return{sp:s.sp,cn:s.cn,n:s.n,nom:s.nom,lat:s.lat,lon:s.lon,D_rel,F_rel,IVI};
+  }).sort((a,b)=>b.IVI-a.IVI);
+
+  const J=S>1?H/Math.log(S):0;
+  const D_Mg=totalInd>1?(S-1)/Math.log(totalInd):0;
+  const Chao1=f2>0?S+(f1*f1)/(2*f2):S+f1*(f1-1)/2;
+  const Simp=totalInd>1?1-(sumN2/(totalInd*(totalInd-1))):0;
+  const BP=spRows.length>0?spRows[0].n/totalInd:0;
+
+  const idx={S,H,J,D_Mg,Chao1,Simp,BP,f1,f2,totalInd,totalN};
+  calcResults[grp]={idx,spRows,pid,fecha:document.getElementById(grp+'-fecha').value,bio:document.getElementById(grp+'-bio').value};
+  savedData[grp]=gatherRows(grp);
+  persistToStorage();
+  showToast(`📊 Análisis ${({ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'})[grp]} guardado — S=${S}, H'=${H.toFixed(3)}`,'var(--night2)');
+
+  renderIndices(grp);
+  switchInner(grp,'idx',document.querySelectorAll(`#grp-${grp} .itab`)[1]);
+}
+
+function renderIndices(grp){
+  const r=calcResults[grp]; if(!r) return;
+  const{idx,spRows}=r;
+  document.getElementById(grp+'-idx-empty').style.display='none';
+  document.getElementById(grp+'-idx-content').style.display='block';
+  const iH=idx.H<1?'Baja diversidad':idx.H<2?'Diversidad media':'Alta diversidad';
+  const iJ=idx.J<0.4?'Comunidad dominada':idx.J<0.7?'Equidad media':'Alta equidad';
+  document.getElementById(grp+'-idx-grid').innerHTML=`
+    <div class="icard"><div class="iname">Riqueza S</div><div class="iformula">S = n° spp.</div><div class="ival ${grp}">${idx.S}</div><div class="iinterp">Total individuos: ${idx.totalInd}</div></div>
+    <div class="icard"><div class="iname">Shannon H'</div><div class="iformula">H'=−Σpᵢln(pᵢ)</div><div class="ival ${grp}">${idx.H.toFixed(4)}</div><div class="iinterp">${iH}</div></div>
+    <div class="icard"><div class="iname">Pielou J'</div><div class="iformula">J'=H'/ln(S)</div><div class="ival ${grp}">${idx.J.toFixed(4)}</div><div class="iinterp">${iJ}</div></div>
+    <div class="icard"><div class="iname">Margalef D<sub>Mg</sub></div><div class="iformula">D=(S−1)/ln(N)</div><div class="ival ${grp}">${idx.D_Mg.toFixed(4)}</div><div class="iinterp">N=${idx.totalInd}</div></div>
+    <div class="icard"><div class="iname">Chao1</div><div class="iformula">S+f₁²/2f₂</div><div class="ival ${grp}">${idx.Chao1.toFixed(1)}</div><div class="iinterp">f₁=${idx.f1} · f₂=${idx.f2}</div></div>
+    <div class="icard"><div class="iname">Simpson 1−D</div><div class="iformula">1−Σn(n−1)/N(N−1)</div><div class="ival ${grp}">${idx.Simp.toFixed(4)}</div><div class="iinterp">${idx.Simp>0.7?'Alta diversidad':'Dom. moderada'}</div></div>
+    <div class="icard"><div class="iname">Berger-Parker</div><div class="iformula">N_max/N</div><div class="ival ${grp}">${idx.BP.toFixed(4)}</div><div class="iinterp">${spRows[0]?.sp||'—'}</div></div>
+    <div class="icard"><div class="iname">N registros</div><div class="iformula">Total observaciones</div><div class="ival ${grp}">${idx.totalN}</div><div class="iinterp">Esfuerzo de muestreo</div></div>
+    <div class="icard"><div class="iname">N individuos</div><div class="iformula">Suma total</div><div class="ival ${grp}">${idx.totalInd}</div><div class="iinterp">&nbsp;</div></div>`;
+
+  const maxIVI=spRows[0]?.IVI||1;
+  document.getElementById(grp+'-abund-b').innerHTML=spRows.map(s=>`
+    <tr class="${s.nom?'nom-row':''}">
+      <td><em style="font-size:.87em">${s.sp}</em>${s.nom?`<span class="chip chip-y" style="margin-left:3px">${s.nom}</span>`:''}</td>
+      <td style="text-align:center;font-family:var(--fm)">${s.n}</td>
+      <td style="text-align:center;font-family:var(--fm)">1</td>
+      <td style="text-align:right;font-family:var(--fm)">${s.D_rel.toFixed(2)}</td>
+      <td style="text-align:right;font-family:var(--fm)">${s.F_rel.toFixed(2)}</td>
+      <td><span style="font-family:var(--fm);font-weight:600;color:var(--${grp==='ave'?'ave':grp==='mam'?'mam':'herp'})">${s.IVI.toFixed(2)}</span>
+        <div class="ivi-bar" style="width:${(s.IVI/maxIVI*100).toFixed(0)}%;background:var(--${grp==='ave'?'ave':grp==='mam'?'mam':'herp'})"></div></td>
+      <td><span class="chip ${s.nom==='P'?'chip-r':s.nom?'chip-y':''}">${s.nom||'—'}</span></td>
+    </tr>`).join('');
+
+  const names={ave:'Avifauna',mam:'Mastofauna',herp:'Herpetofauna'};
+  const top3=spRows.slice(0,3).map(s=>`<em>${s.sp}</em> (${s.IVI.toFixed(1)})`).join(', ');
+  document.getElementById(grp+'-interp').innerHTML=`
+    <p><b>${names[grp]} — ${r.fecha}</b> · Biólogo: ${r.bio}</p><br>
+    <p>Se registraron <b>${idx.totalInd} individuos</b> de <b>${idx.S} especies</b>.
+    Diversidad Shannon H'=${idx.H.toFixed(3)} (${iH.toLowerCase()}) · Equidad Pielou J'=${idx.J.toFixed(3)} (${iJ.toLowerCase()}) ·
+    Riqueza estimada Chao1=${idx.Chao1.toFixed(0)} spp. · Margalef D_Mg=${idx.D_Mg.toFixed(3)}.
+    Especies más importantes (IVI): ${top3||'N/D'}.</p>`;
+}
+
+// ══════════════════════════════════════════════════════
+// NOM PANEL
+// ══════════════════════════════════════════════════════
+function renderNom(grp){
+  const nomMap={};
+  const rows=gatherRows(grp);
+  rows.forEach(r=>{
+    if(!r.nom) return;
+    const k=r.sp.toLowerCase();
+    if(!nomMap[k]) nomMap[k]={sp:r.sp,cn:r.cn||'—',nom:r.nom,n:0,pids:[],lats:[],lons:[],clase:r.clase||''};
+    nomMap[k].n+=r.nind||1;
+    if(!nomMap[k].pids.includes(r.pid)) nomMap[k].pids.push(r.pid);
+    if(r.lat) nomMap[k].lats.push(+r.lat);
+    if(r.lon) nomMap[k].lons.push(+r.lon);
+  });
+  const rws=Object.values(nomMap);
+  document.getElementById(grp+'-nom-cnt').textContent=rws.reduce((s,r)=>s+r.n,0)+' ind.';
+  const body=document.getElementById(grp+'-nom-body');
+  if(!rws.length){body.innerHTML='<tr><td colspan="8" class="empty" style="padding:18px;text-align:center">Sin registros NOM-059</td></tr>';return;}
+  const avgLat=lats=>lats.length?(lats.reduce((a,b)=>a+b,0)/lats.length).toFixed(6):'—';
+  const avgLon=lons=>lons.length?(lons.reduce((a,b)=>a+b,0)/lons.length).toFixed(6):'—';
+  body.innerHTML=rws.sort((a,b)=>b.n-a.n).map(r=>`<tr>
+    <td><em>${r.sp}</em></td><td>${r.cn}</td>${grp==='herp'?`<td>${r.clase||'—'}</td>`:''}
+    <td><span class="chip ${r.nom==='P'?'chip-r':r.nom==='A'?'chip-r':'chip-y'}">${r.nom} — ${NOM_LBL[r.nom]||r.nom}</span></td>
+    <td style="text-align:center;font-family:var(--fm);font-weight:600">${r.n}</td>
+    <td style="font-family:var(--fm);font-size:.8em">${r.pids.sort().join(', ')}</td>
+    <td style="font-family:var(--fm);font-size:.8em">${avgLat(r.lats)}</td>
+    <td style="font-family:var(--fm);font-size:.8em">${avgLon(r.lons)}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// RESULTS GLOBAL
+// ══════════════════════════════════════════════════════
+function buildResults(){
+  ['ave','mam','herp'].forEach(g=>{
+    const r=calcResults[g];
+    const el=document.getElementById('res-'+g+'-summ');
+    if(!r){el.textContent='Sin análisis calculado — captura datos y presiona "Calcular índices"';return;}
+    const i=r.idx;
+    el.innerHTML=`<b>S:</b> ${i.S} spp. · <b>N:</b> ${i.totalInd} ind.<br><b>H':</b> ${i.H.toFixed(3)} · <b>J':</b> ${i.J.toFixed(3)}<br><b>Margalef:</b> ${i.D_Mg.toFixed(3)} · <b>Chao1:</b> ${i.Chao1.toFixed(0)}<br><b>NOM-059:</b> ${r.spRows.filter(s=>s.nom).length} spp.`;
+  });
+
+  // Interaction matrix
+  const interactions=[
+    {grp:'🦅 Aves',impact:'Pérdida de hábitat de anidación y forrajeo · Perturbación por maquinaria · Colisión con estructuras',intensity:'Alta',spp:'Aquila chrysaetos, Falco mexicanus, Buteo jamaicensis',mit:'Restricción de actividades en período reproductivo (feb–jun) · Monitoreo activo de nidos'},
+    {grp:'🦅 Aves',impact:'Reducción de disponibilidad de presas por pérdida de cobertura vegetal',intensity:'Media',spp:'Todas las rapaces',mit:'Conservar parches de matorral como área refugio · Plan de restauración progresiva'},
+    {grp:'🦌 Mamíferos',impact:'Fragmentación de corredores de movimiento · Bloqueo de rutas de agua',intensity:'Alta',spp:'Odocoileus virginianus, Puma concolor, Canis latrans',mit:'Mantener caminos de fauna sin obstáculos nocturnos · Señalización'},
+    {grp:'🦌 Mamíferos',impact:'Perturbación de madrigueras y sitios de reproducción',intensity:'Media',spp:'Taxidea taxus, Lepus callotis, Bassariscus astutus',mit:'Inspección previa al despalme · Reubicación de individuos'},
+    {grp:'🦎 Herpetofauna',impact:'Pérdida directa de microhábitat (bajo rocas, grietas) durante despalme',intensity:'Alta',spp:'Crotalus spp., Phrynosoma orbiculare, Sceloporus spp.',mit:'Remoción manual previa de rocas · Rescate y reubicación en área de conservación'},
+    {grp:'🦎 Herpetofauna',impact:'Atropellamiento en caminos activos · Calentamiento de superficies artificiales',intensity:'Media',spp:'Toda la herpetofauna',mit:'Velocidad máxima 20 km/h · Revisión periódica de maquinaria estacionada'},
+  ];
+  const colors={Alta:'hi',Media:'med',Baja:'lo'};
+  document.getElementById('interBody').innerHTML=interactions.map(r=>`<tr>
+    <td style="white-space:nowrap;font-weight:600">${r.grp}</td>
+    <td style="font-size:.85em">${r.impact}</td>
+    <td><span class="${colors[r.intensity]}">${r.intensity}</span></td>
+    <td style="font-size:.82em"><em>${r.spp}</em></td>
+    <td style="font-size:.82em">${r.mit}</td>
+  </tr>`).join('');
+
+  // Global NOM
+  let allNom=[];
+  ['ave','mam','herp'].forEach(g=>{
+    const names={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'};
+    const rows=savedData[g]||[];
+    const nomMap={};
+    rows.forEach(r=>{
+      if(!r.nom) return;
+      const k=r.sp?.toLowerCase()||'';
+      if(!nomMap[k]) nomMap[k]={sp:r.sp,cn:r.cn||'—',nom:r.nom,n:0,pids:[],lats:[],lons:[],grp:names[g],clase:r.clase||''};
+      nomMap[k].n+=r.nind||1;
+      if(r.pid&&!nomMap[k].pids.includes(r.pid)) nomMap[k].pids.push(r.pid);
+      if(r.lat) nomMap[k].lats.push(+r.lat);
+      if(r.lon) nomMap[k].lons.push(+r.lon);
+    });
+    allNom=allNom.concat(Object.values(nomMap));
+  });
+  const avgL=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(6):'—';
+  if(!allNom.length){
+    document.getElementById('nomGlobal').style.display='none';
+    document.getElementById('nomGlobalEmpty').style.display='';
+  } else {
+    document.getElementById('nomGlobal').style.display='';
+    document.getElementById('nomGlobalEmpty').style.display='none';
+    document.getElementById('nomGlobalBody').innerHTML=allNom.sort((a,b)=>b.n-a.n).map(r=>`<tr>
+      <td><span class="chip ${r.grp==='Aves'?'chip-b':r.grp==='Mamíferos'?'chip-m':'chip-h'}">${r.grp}</span></td>
+      <td><em>${r.sp}</em></td><td>${r.cn}</td>
+      <td><span class="chip ${r.nom==='P'?'chip-r':r.nom==='A'?'chip-r':'chip-y'}">${r.nom} — ${NOM_LBL[r.nom]||r.nom}</span></td>
+      <td style="text-align:center;font-family:var(--fm);font-weight:600">${r.n}</td>
+      <td style="font-family:var(--fm);font-size:.8em">${r.pids.sort().join(', ')}</td>
+      <td style="font-family:var(--fm);font-size:.8em">${avgL(r.lats)}</td>
+      <td style="font-family:var(--fm);font-size:.8em">${avgL(r.lons)}</td>
+    </tr>`).join('');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// WEATHER API — OpenMeteo (free, no key required)
+// ══════════════════════════════════════════════════════
+async function fetchWeatherGrp(grp){
+  const btn=document.getElementById(grp+'-btnWeather');
+  const status=document.getElementById(grp+'-weatherStatus');
+  // Use station GPS for this group, or current GPS position
+  const sg=stationGps[grp];
+  const lat=sg?.lat || currentPos?.coords?.latitude;
+  const lon=sg?.lon || currentPos?.coords?.longitude;
+  if(!lat||!lon){
+    showToast('⚠️ Capture el GPS del punto/transecto primero','var(--gps-wait)');
+    if(status) status.textContent='Sin GPS';
+    return;
+  }
+  btn.textContent='⏳...'; btn.disabled=true;
+  if(status) status.textContent='';
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${(+lat).toFixed(4)}&longitude=${(+lon).toFixed(4)}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&timezone=America%2FMexico_City&forecast_days=1`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const c=data.current;
+    const temp=c.temperature_2m;
+    const hum=c.relative_humidity_2m;
+    const now=new Date();
+    const timeStr=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    const tIni=document.getElementById(grp+'-t-ini');
+    const hIni=document.getElementById(grp+'-h-ini');
+    const tFin=document.getElementById(grp+'-t-fin');
+    const hFin=document.getElementById(grp+'-h-fin');
+    const horaFin=document.getElementById(grp+'-hora-fin');
+    const grpName={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'}[grp];
+
+    if(!tIni.value){
+      tIni.value=temp.toFixed(1); hIni.value=hum.toFixed(0);
+      showToast(`🌡 ${grpName}: T°=${temp}°C H%=${hum}% → INICIO`,'var(--sky)');
+    } else {
+      tFin.value=temp.toFixed(1); hFin.value=hum.toFixed(0);
+      if(!horaFin.value) horaFin.value=timeStr;
+      showToast(`🌡 ${grpName}: T°=${temp}°C H%=${hum}% → FINAL`,'var(--herp)');
+    }
+    if(status) status.textContent=`${temp}°C · ${hum}% · ${timeStr}`;
+    markDirty(); scheduleAutoSave();
+  }catch(e){
+    showToast('❌ Error API clima: '+e.message,'var(--gps-off)');
+    if(status) status.textContent='Error';
+  }finally{
+    btn.textContent='🌐 API clima'; btn.disabled=false;
+  }
+}
+
+// Get T/H meta for a group
+function getTHGrp(grp){
+  const v=id=>document.getElementById(grp+'-'+id)?.value||'';
+  const tI=v('t-ini'), hI=v('h-ini'), tF=v('t-fin'), hF=v('h-fin');
+  return{
+    t_ini:tI, h_ini:hI, t_fin:tF, h_fin:hF,
+    hora_fin:v('hora-fin'),
+    t_delta:(tI&&tF)?(+tF - +tI).toFixed(1):'',
+    weather_source:'open-meteo/manual'
+  };
+}
+
+// Restore T/H fields for a group
+function setTHGrp(grp, m){
+  if(!m) return;
+  const set=(id,val)=>{ const el=document.getElementById(grp+'-'+id); if(el&&val!==undefined&&val!=='') el.value=val; };
+  set('t-ini',m.t_ini); set('h-ini',m.h_ini);
+  set('t-fin',m.t_fin); set('h-fin',m.h_fin);
+  set('hora-fin',m.hora_fin);
+}
+function gatherRows(grp){
+  const pid=document.getElementById(grp+'-pid').value;
+  const bio=document.getElementById(grp+'-bio').value;
+  const fecha=document.getElementById(grp+'-fecha').value;
+  const hora=document.getElementById(grp+'-hora').value;
+  const sGps=stationGps[grp];
+  const th=getTHGrp(grp);
+  const rows=[];
+  document.querySelectorAll('#'+grp+'-body tr').forEach((r,i)=>{
+    const row={grp,pid,bio,fecha,hora,no:i+1,
+      sp:r.querySelector('.sp')?.value.trim()||'',
+      cn:r.querySelector('.cn')?.value.trim()||'',
+      nind:parseInt(r.querySelector('.nind')?.value||1),
+      nom:r.querySelector('.nom-sel')?.value||'',
+      lat:r.querySelector('.gps-lat')?.value||'',
+      lon:r.querySelector('.gps-lon')?.value||'',
+      utmE:r.querySelector('.gps-utme')?.value||'',
+      utmN:r.querySelector('.gps-utmn')?.value||'',
+      acc:r.querySelector('.gps-acc')?.value||'',
+      obs:r.querySelector('.obs')?.value.trim()||'',
+      foto:r.querySelector('.foto')?.value||'',
+      stLat:sGps?.lat||'', stLon:sGps?.lon||'',
+      stUtmE:sGps?.utmE||'', stUtmN:sGps?.utmN||'', stZone:sGps?.zone||'',
+      // T/H from group-level fields
+      t_ini:th.t_ini, h_ini:th.h_ini,
+      t_fin:th.t_fin, h_fin:th.h_fin,
+      hora_fin:th.hora_fin, t_delta:th.t_delta,
+      weather_source:th.weather_source,
+    };
+    if(grp==='ave'){
+      row.det=r.querySelector('.det')?.value||'';
+      row.dist=r.querySelector('.dist')?.value||'';
+      row.est=r.querySelector('.est')?.value||'';
+      row.cond=r.querySelector('.cond')?.value||'';
+    } else if(grp==='mam'){
+      row.indicio=r.querySelector('.indicio')?.value||'';
+      row.distT=r.querySelector('.dist')?.value||'';
+      row.sust=r.querySelector('.sust')?.value||'';
+    } else if(grp==='herp'){
+      row.clase=r.querySelector('.clase')?.value||'';
+      row.microhab=r.querySelector('.microhab')?.value||'';
+      row.cond=r.querySelector('.cond')?.value||'';
+    }
+    rows.push(row);
+  });
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════
+// PERSISTENCE — auto-save + full DOM restore
+// ══════════════════════════════════════════════════════
+
+// Auto-save timer: debounced 1.5s after any change
+let _saveTimer=null;
+function scheduleAutoSave(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    ['ave','mam','herp'].forEach(g=>{ savedData[g]=gatherRows(g); });
+    persistToStorage();
+  },1500);
+}
+
+function persistToStorage(){
+  try{
+    // Snapshot T/H for each group
+    const thSnap={
+      ave:getTHGrp('ave'),
+      mam:getTHGrp('mam'),
+      herp:getTHGrp('herp'),
+    };
+    const store={
+      data: savedData,
+      results: calcResults,
+      stationGps,
+      thData: thSnap,
+      meta: {
+        savedAt: new Date().toISOString(),
+        version: 'fauna_v2'
+      }
+    };
+    localStorage.setItem('pelones_fauna_v2', JSON.stringify(store));
+    markClean();
+    updateSaveStatus();
+  }catch(e){
+    console.warn('localStorage write failed:', e);
+    showToast('⚠️ Error al guardar — almacenamiento lleno','#e67e22');
+  }
+}
+
+function updateSaveStatus(){
+  const raw=localStorage.getItem('pelones_fauna_v2');
+  if(!raw) return;
+  try{
+    const s=JSON.parse(raw);
+    const dt=new Date(s.meta?.savedAt);
+    const timeStr=dt.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('saveTime').textContent='Guardado '+timeStr;
+  }catch(e){}
+}
+
+function loadFromStorage(){
+  try{
+    // Try v2 first, then v1 as fallback
+    let raw=localStorage.getItem('pelones_fauna_v2')||localStorage.getItem('pelones_fauna_v1');
+    if(!raw) return false;
+    const s=JSON.parse(raw);
+    if(s.data)       savedData   = s.data;
+    if(s.results)    calcResults = s.results;
+    if(s.stationGps) stationGps  = s.stationGps;
+
+    // ── Restore DOM rows for each group ──
+    ['ave','mam','herp'].forEach(g=>{
+      const rows=savedData[g]||[];
+      if(!rows.length) return;
+      // Restore meta fields
+      if(rows[0]){
+        const pid=document.getElementById(g+'-pid');
+        const bio=document.getElementById(g+'-bio');
+        const fecha=document.getElementById(g+'-fecha');
+        const hora=document.getElementById(g+'-hora');
+        if(pid&&rows[0].pid) pid.value=rows[0].pid;
+        if(bio&&rows[0].bio) bio.value=rows[0].bio;
+        if(fecha&&rows[0].fecha) fecha.value=rows[0].fecha;
+        if(hora&&rows[0].hora) hora.value=rows[0].hora;
+      }
+      rows.forEach(r=>restoreRow(g,r));
+      document.getElementById(g+'-empty').style.display='none';
+      updateCounts(g);
+    });
+
+    // ── Restore station GPS displays ──
+    ['ave','mam','herp'].forEach(g=>{
+      const sg=stationGps[g];
+      if(sg?.lat){
+        document.getElementById(g+'-lat').textContent=(+sg.lat).toFixed(7);
+        document.getElementById(g+'-lon').textContent=(+sg.lon).toFixed(7);
+        if(sg.utmE&&sg.utmN)
+          document.getElementById(g+'-utm').textContent=`${(+sg.utmE).toFixed(1)} / ${(+sg.utmN).toFixed(1)} (${sg.zone||''})`;
+        const b=document.getElementById(g+'-gpsbtn');
+        if(b){b.textContent='✅ GPS capturado';b.style.background='var(--gps-on)';}
+      }
+    });
+
+    // ── Restore T/H fields ──
+    if(s.thData){
+      ['ave','mam','herp'].forEach(g=>{
+        if(s.thData[g]) setTHGrp(g, s.thData[g]);
+      });
+    }
+
+    // ── Re-render analysis results ──
+    ['ave','mam','herp'].forEach(g=>{
+      if(calcResults[g]) renderIndices(g);
+    });
+
+    updateSaveStatus();
+    return true;
+  }catch(e){
+    console.warn('loadFromStorage error:', e);
+    return false;
+  }
+}
+
+// ── Rebuild a single table row from saved data object ──
+function restoreRow(grp, r){
+  const bodyId=grp+'-body';
+  const tb=document.getElementById(bodyId);
+  rowCounters[grp]++;
+  const n=tb.children.length+1;
+  const tr=document.createElement('tr');
+
+  const coordVal=(v)=>`<input class="ti coord ${v?'':'empty'} gps-${v?'':'x'}" value="${v||''}" style="width:93px;font-size:.74em" oninput="markDirty();scheduleAutoSave()">`;
+  const coordC=(cls,val)=>`<input class="ti coord ${val?'':'empty'} ${cls}" value="${val||''}" style="width:93px;font-size:.74em" oninput="markDirty();scheduleAutoSave()">`;
+  const hasGps=!!(r.lat&&r.lon);
+  const gpsBtn=`<button class="gpsbtn ${hasGps?'ok':''}" onclick="captureRowGps(this,'${grp}')">${hasGps?`✅ ±${r.acc||'?'}m`:'📡 GPS'}</button>`;
+  const del=`<button class="btn btn-red btn-sm" style="padding:4px 6px" onclick="delRow(this,'${grp}')">✕</button>`;
+  const numCell=`<td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>`;
+
+  let inner='';
+  if(grp==='ave'){
+    inner=`${numCell}
+      <td><input class="ti sp" list="dlAve" value="${r.sp||''}" style="min-width:170px" oninput="autoFill(this,'ave');markDirty();updateCounts('ave');scheduleAutoSave()"></td>
+      <td><input class="ti cn" value="${r.cn||''}" style="min-width:100px"></td>
+      <td><input type="number" class="ti nind" value="${r.nind||1}" min="1" style="width:55px" oninput="updateCounts('ave');markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel det" onchange="markDirty();scheduleAutoSave()">${selOpts(DET_AVE,r.det||'')}</select></td>
+      <td><select class="tsel dist" onchange="markDirty();scheduleAutoSave()">${selOpts(DIST_AVE,r.dist||'')}</select></td>
+      <td><select class="tsel est" onchange="markDirty();scheduleAutoSave()">${selOpts(ESTRATO_AVE,r.est||'')}</select></td>
+      <td><select class="tsel cond" onchange="markDirty();scheduleAutoSave()">${selOpts(COND_AVE,r.cond||'')}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel(r.nom||'','ave')}</select></td>
+      <td>${coordC('gps-lat',r.lat)}</td><td>${coordC('gps-lon',r.lon)}</td>
+      <td>${coordC('gps-utme',r.utmE)}</td><td>${coordC('gps-utmn',r.utmN)}</td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  } else if(grp==='mam'){
+    inner=`${numCell}
+      <td><input class="ti sp" list="dlMam" value="${r.sp||''}" style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam');scheduleAutoSave()"></td>
+      <td><input class="ti cn" value="${r.cn||''}" style="min-width:100px"></td>
+      <td><select class="tsel indicio" onchange="markDirty();scheduleAutoSave()">${selOpts(INDICIO,r.indicio||'')}</select></td>
+      <td><input type="number" class="ti nind" value="${r.nind||1}" min="1" style="width:50px" oninput="updateCounts('mam');markDirty();scheduleAutoSave()"></td>
+      <td><input type="number" class="ti dist" value="${r.distT||0}" min="0" step="1" style="width:65px" oninput="markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel sust" onchange="markDirty();scheduleAutoSave()">${selOpts(SUSTRATO,r.sust||'')}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel(r.nom||'','mam')}</select></td>
+      <td><input class="ti foto" value="${r.foto||''}" placeholder="IMG_0001" style="width:80px"></td>
+      <td>${coordC('gps-lat',r.lat)}</td><td>${coordC('gps-lon',r.lon)}</td>
+      <td>${coordC('gps-utme',r.utmE)}</td><td>${coordC('gps-utmn',r.utmN)}</td>
+      <td><input class="ti gps-acc" value="${r.acc||''}" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  } else if(grp==='herp'){
+    inner=`${numCell}
+      <td><input class="ti sp" list="dlHerp" value="${r.sp||''}" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp');scheduleAutoSave()"></td>
+      <td><input class="ti cn" value="${r.cn||''}" style="min-width:100px"></td>
+      <td><select class="tsel clase" onchange="markDirty();scheduleAutoSave()">${selOpts(CLASE_HERP,r.clase||'')}</select></td>
+      <td><input type="number" class="ti nind" value="${r.nind||1}" min="1" style="width:50px" oninput="updateCounts('herp');markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel microhab" onchange="markDirty();scheduleAutoSave()">${selOpts(MICROHAB,r.microhab||'')}</select></td>
+      <td><select class="tsel cond" onchange="markDirty();scheduleAutoSave()">${selOpts(COND_HERP,r.cond||'')}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel(r.nom||'','herp')}</select></td>
+      <td><input class="ti foto" value="${r.foto||''}" placeholder="IMG_0001" style="width:80px"></td>
+      <td>${coordC('gps-lat',r.lat)}</td><td>${coordC('gps-lon',r.lon)}</td>
+      <td>${coordC('gps-utme',r.utmE)}</td><td>${coordC('gps-utmn',r.utmN)}</td>
+      <td><input class="ti gps-acc" value="${r.acc||''}" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
+      <td>${gpsBtn}</td>
+      <td><input class="ti obs" value="${r.obs||''}" style="min-width:110px"></td>
+      <td>${del}</td>`;
+  }
+  tr.innerHTML=inner;
+  tb.appendChild(tr);
+  if(r.nom) markNomRow(tr.querySelector('.nom-sel'));
+}
+
+// ── Save current group manually ──
+function saveGrp(grp){
+  savedData[grp]=gatherRows(grp);
+  persistToStorage();
+  showToast(`✅ ${({ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'})[grp]} guardado — ${savedData[grp].length} registros`,'#27ae60');
+}
+
+// ── Clear single group (ask confirmation) ──
+function clearGrp(grp){
+  const name={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'}[grp];
+  if(!confirm(`¿Limpiar todos los registros de ${name}?\n\nEsto solo borra la vista actual. Los datos guardados en memoria del navegador se actualizarán la próxima vez que presiones "Guardar".`)) return;
+  document.getElementById(grp+'-body').innerHTML='';
+  document.getElementById(grp+'-empty').style.display='';
+  rowCounters[grp]=0;
+  updateCounts(grp);
+  markDirty();
+}
+
+// ── RESET ALL — double confirmation ──
+function resetAll(){
+  const step1=confirm(
+    '⚠️ ADVERTENCIA — BORRAR TODO\n\n' +
+    'Esta acción eliminará PERMANENTEMENTE:\n' +
+    '• Todos los registros de Aves, Mamíferos y Herpetofauna\n' +
+    '• Todos los índices calculados\n' +
+    '• Todas las coordenadas GPS capturadas\n\n' +
+    '¿Desea continuar?'
+  );
+  if(!step1) return;
+
+  const step2=confirm(
+    '🔴 CONFIRMACIÓN FINAL\n\n' +
+    'Está a punto de borrar TODOS los datos del diagnóstico de fauna.\n\n' +
+    'Esta acción NO se puede deshacer.\n\n' +
+    '¿Está completamente seguro?'
+  );
+  if(!step2) return;
+
+  // Clear DOM
+  ['ave','mam','herp'].forEach(g=>{
+    document.getElementById(g+'-body').innerHTML='';
+    document.getElementById(g+'-empty').style.display='';
+    rowCounters[g]=0;
+    // Reset station GPS display
+    document.getElementById(g+'-lat').textContent='Sin captura';
+    document.getElementById(g+'-lon').textContent='Sin captura';
+    document.getElementById(g+'-utm').textContent='Sin captura';
+    const b=document.getElementById(g+'-gpsbtn');
+    if(b){b.textContent='📡 Capturar';b.style.background='';}
+    // Reset indices panels
+    const idxEmpty=document.getElementById(g+'-idx-empty');
+    const idxContent=document.getElementById(g+'-idx-content');
+    if(idxEmpty) idxEmpty.style.display='';
+    if(idxContent) idxContent.style.display='none';
+    updateCounts(g);
+  });
+  // Reset meta inputs to today
+  const now=new Date();
+  ['ave','mam','herp'].forEach(g=>{
+    const f=document.getElementById(g+'-fecha'); if(f) f.valueAsDate=now;
+    const h=document.getElementById(g+'-hora'); if(h) h.value=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const pid=document.getElementById(g+'-pid'); if(pid) pid.value=1;
+  });
+  // Clear T/H fields
+  ['ave','mam','herp'].forEach(g=>{
+    ['t-ini','h-ini','t-fin','h-fin','hora-fin'].forEach(f=>{
+      const el=document.getElementById(g+'-'+f);
+      if(el) el.value='';
+    });
+    const ws=document.getElementById(g+'-weatherStatus');
+    if(ws) ws.textContent='';
+  });
+  calcResults={ave:null,mam:null,herp:null};
+  stationGps={ave:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null},
+              mam:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null},
+              herp:{lat:null,lon:null,utmE:null,utmN:null,zone:null,alt:null,acc:null}};
+  // Clear localStorage
+  localStorage.removeItem('pelones_fauna_v2');
+  localStorage.removeItem('pelones_fauna_v1');
+  markClean();
+  document.getElementById('saveTime').textContent='Sin datos guardados';
+  showToast('🗑 Todos los datos han sido eliminados','#c0392b');
+}
+
+// ── Toast notification ──
+function showToast(msg,color='#27ae60'){
+  let t=document.getElementById('toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='toast';
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 18px;border-radius:6px;font-family:var(--fm);font-size:.82em;color:#fff;z-index:9999;pointer-events:none;transition:opacity .4s;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.3)';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.background=color;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.style.opacity='0',3000);
+}
+
+function markDirty(){isDirty=true;document.getElementById('saveDot').className='save-ind dirty';}
+function markClean(){isDirty=false;document.getElementById('saveDot').className='save-ind';}
+
+// ══════════════════════════════════════════════════════
+// EXCEL EXPORTS
+// ══════════════════════════════════════════════════════
+function rowToExcel(r,grp){
+  const base={
+    Grupo:grp, Sitio_No:r.pid, Biólogo:r.bio, Fecha:r.fecha, Hora:r.hora,
+    'No.':r.no, Especie:r.sp, 'Nombre Común':r.cn, 'N Individuos':r.nind,
+    'NOM-059':r.nom||'', 'Foto No.':r.foto||'',
+    'Latitud (WGS84)':r.lat||'', 'Longitud (WGS84)':r.lon||'',
+    'UTM Este (m)':r.utmE||'', 'UTM Norte (m)':r.utmN||'',
+    'Precisión GPS (m)':r.acc||'',
+    'Lat Estación':r.stLat||'', 'Lon Estación':r.stLon||'',
+    'UTM E Estación':r.stUtmE||'', 'UTM N Estación':r.stUtmN||'',
+    'Zona UTM':r.stZone||'',
+    'T° inicio (°C)':r.t_ini||'', 'H% inicio (%)':r.h_ini||'',
+    'T° final (°C)':r.t_fin||'', 'H% final (%)':r.h_fin||'',
+    'Hora final':r.hora_fin||'', 'ΔT° (°C)':r.t_delta||'',
+    'Fuente clima':r.weather_source||'manual',
+    Observaciones:r.obs
+  };
+  if(grp==='Aves'){base.Detección=r.det||'';base.Distancia=r.dist||'';base.Estrato=r.est||'';base.Conducta=r.cond||'';}
+  if(grp==='Mamíferos'){base['Tipo Indicio']=r.indicio||'';base['Dist. Transecto (m)']=r.distT||'';base.Sustrato=r.sust||'';}
+  if(grp==='Herpetofauna'){base.Clase=r.clase||'';base.Microhábitat=r.microhab||'';base.Conducta=r.cond||'';}
+  return base;
+}
+
+function exportGrp(grp,mode){
+  const grpName={ave:'Aves',mam:'Mamíferos',herp:'Herpetofauna'}[grp];
+  const rows=gatherRows(grp);
+  const wb=XLSX.utils.book_new();
+  if(mode==='raw'||mode==='full'){
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows.map(r=>rowToExcel(r,grpName)):[{}]),grpName+'_Registros');
+  }
+  if((mode==='analysis'||mode==='full')&&calcResults[grp]){
+    const r=calcResults[grp],i=r.idx;
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(r.spRows.map(s=>({'Especie':s.sp,'N':s.n,'Abd. Rel%':+s.D_rel.toFixed(4),'Frec. Rel%':+s.F_rel.toFixed(4),'IVI':+s.IVI.toFixed(4),'NOM':s.nom||''}))),grpName+'_IVI');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{'Grupo':grpName,'Fecha':r.fecha,'S':i.S,"H'":+i.H.toFixed(6),"J'":+i.J.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simp.toFixed(6),'BP':+i.BP.toFixed(6),'f1':i.f1,'f2':i.f2,'N ind.':i.totalInd,'N reg.':i.totalN}]),'Indices_'+grpName);
+  }
+  const fecha=document.getElementById(grp+'-fecha').value;
+  XLSX.writeFile(wb,`LosPelones_${grpName}_${fecha}.xlsx`);
+}
+
+function exportAll(){
+  const wb=XLSX.utils.book_new();
+  const grps=[['ave','Aves'],['mam','Mamíferos'],['herp','Herpetofauna']];
+  let allGps=[];
+  grps.forEach(([g,n])=>{
+    const rows=gatherRows(g);
+    if(rows.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(r=>rowToExcel(r,n))),n+'_Registros');
+    if(calcResults[g]){
+      const r=calcResults[g],i=r.idx;
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(r.spRows.map(s=>({'Grupo':n,'Especie':s.sp,'N':s.n,'Abd. Rel%':+s.D_rel.toFixed(4),'Frec. Rel%':+s.F_rel.toFixed(4),'IVI':+s.IVI.toFixed(4),'NOM':s.nom||''}))),n+'_IVI');
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{'Grupo':n,'Fecha':r.fecha,'S':i.S,"H'":+i.H.toFixed(6),"J'":+i.J.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simp.toFixed(6),'BP':+i.BP.toFixed(6),'N':i.totalInd}]),'Indices_'+n);
+    }
+    // GPS all points
+    const sg=stationGps[g];
+    if(sg?.lat) allGps.push({Tipo:'Estación',Grupo:n,Sitio:document.getElementById(g+'-pid').value,Especie:'Estación/inicio',Latitud:+sg.lat,Longitud:+sg.lon,'UTM E':sg.utmE?+sg.utmE:'','UTM N':sg.utmN?+sg.utmN:'','Zona UTM':sg.zone||'',Altitud:sg.alt||'','Precisión':sg.acc||''});
+    rows.forEach(r=>{if(r.lat) allGps.push({Tipo:'Registro',Grupo:n,Sitio:r.pid,Especie:r.sp,Latitud:+r.lat,Longitud:+r.lon,'UTM E':r.utmE?+r.utmE:'','UTM N':r.utmN?+r.utmN:'','Zona UTM':r.stZone||'',Altitud:'','Precisión':r.acc||''});});
+  });
+  if(allGps.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allGps),'GPS_Todos_Puntos');
+
+  // NOM global
+  let nomAll=[];
+  grps.forEach(([g,n])=>{
+    const nomMap={};
+    (savedData[g]||[]).forEach(r=>{
+      if(!r.nom) return;
+      const k=r.sp?.toLowerCase()||'indeterminado';
+      if(!nomMap[k]) nomMap[k]={Grupo:n,Especie:r.sp,'Nombre Común':r.cn||'—','Categoría NOM-059':r.nom+' — '+(NOM_LBL[r.nom]||r.nom),'N Individuos':0,'Sitios':[],'Lat prom':'','Lon prom':'',lats:[],lons:[]};
+      nomMap[k]['N Individuos']+=r.nind||1;
+      if(r.pid&&!nomMap[k]['Sitios'].includes(r.pid)) nomMap[k]['Sitios'].push(r.pid);
+      if(r.lat) nomMap[k].lats.push(+r.lat);
+      if(r.lon) nomMap[k].lons.push(+r.lon);
+    });
+    Object.values(nomMap).forEach(r=>{
+      r['Lat prom']=r.lats.length?+(r.lats.reduce((a,b)=>a+b,0)/r.lats.length).toFixed(6):'';
+      r['Lon prom']=r.lons.length?+(r.lons.reduce((a,b)=>a+b,0)/r.lons.length).toFixed(6):'';
+      r['Sitios']=r['Sitios'].join(', ');
+      delete r.lats; delete r.lons;
+      nomAll.push(r);
+    });
+  });
+  if(nomAll.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nomAll),'NOM059_Global');
+
+  // Interactions
+  const ints=[
+    {Grupo:'Aves',Impacto:'Pérdida hábitat anidación/forrajeo · Perturbación maquinaria',Intensidad:'Alta',Especie_clave:'Aquila chrysaetos, Falco mexicanus',Mitigación:'Restricción feb–jun · Monitoreo nidos'},
+    {Grupo:'Aves',Impacto:'Reducción presas por pérdida cobertura vegetal',Intensidad:'Media',Especie_clave:'Todas las rapaces',Mitigación:'Conservar parches matorral'},
+    {Grupo:'Mamíferos',Impacto:'Fragmentación de corredores de movimiento',Intensidad:'Alta',Especie_clave:'Odocoileus virginianus, Puma concolor',Mitigación:'Mantener pasos de fauna nocturnos'},
+    {Grupo:'Mamíferos',Impacto:'Perturbación de madrigueras y reproducción',Intensidad:'Media',Especie_clave:'Taxidea taxus, Lepus callotis',Mitigación:'Inspección previa al despalme'},
+    {Grupo:'Herpetofauna',Impacto:'Pérdida directa de microhábitat (rocas, grietas)',Intensidad:'Alta',Especie_clave:'Crotalus spp., Phrynosoma orbiculare',Mitigación:'Remoción manual · Rescate y reubicación'},
+    {Grupo:'Herpetofauna',Impacto:'Atropellamiento en caminos activos',Intensidad:'Media',Especie_clave:'Toda la herpetofauna',Mitigación:'Velocidad max 20 km/h'},
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ints),'Interacciones_Biodiversidad');
+
+  // Global summary
+  const summ=grps.filter(([g])=>calcResults[g]).map(([g,n])=>{const r=calcResults[g],i=r.idx;return{Grupo:n,Fecha:r.fecha,S:i.S,"H'":+i.H.toFixed(4),"J'":+i.J.toFixed(4),D_Mg:+i.D_Mg.toFixed(4),Chao1:+i.Chao1.toFixed(1),'1-D':+i.Simp.toFixed(4),BP:+i.BP.toFixed(4),N_ind:i.totalInd,N_reg:i.totalN,'NOM spp':calcResults[g]?.spRows.filter(s=>s.nom).length||0};});
+  if(summ.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summ),'Resumen_Global');
+
+  XLSX.writeFile(wb,'LosPelones_DIAGNOSTICO_FAUNA_COMPLETO.xlsx');
+}
+</script>
+</body>
+</html>

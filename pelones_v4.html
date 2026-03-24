@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CYCNA Los Pelones — Campo v4 GPS</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#0e1a10;--paper:#f3efe6;--card:#fdfaf3;
+  --moss:#2d5a27;--sage:#4a7c42;--sage-lt:#ddeeda;
+  --straw:#c8a84b;--straw-lt:#f5ecc8;
+  --clay:#8b5e3c;--clay-lt:#f2e3d5;
+  --sky:#2c6e8a;--sky-lt:#d4eaf4;
+  --mist:#e8ede5;--rule:#c4cfc0;
+  --red:#c0392b;--red-lt:#fde8e5;
+  --amber:#e67e22;
+  --gps-on:#27ae60;--gps-off:#e74c3c;--gps-wait:#f39c12;
+  --fm:'IBM Plex Mono',monospace;
+  --fc:'Barlow Condensed',sans-serif;
+  --fb:'Barlow',sans-serif;
+  /* ── Tablet base size ── */
+  --base:18px;
+  --touch:52px;   /* minimum tap target */
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:rgba(45,90,39,.15)}
+html{font-size:var(--base)}
+body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:100%;-webkit-text-size-adjust:100%}
+
+/* ── MASTHEAD ── */
+.mh{background:var(--moss);color:#fff;position:sticky;top:0;z-index:300;box-shadow:0 3px 16px rgba(0,0,0,.35)}
+.mh-inner{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:10px;padding:10px 16px}
+.brand{font-family:var(--fc);font-weight:900;font-size:1.5rem;line-height:1}
+.brand small{display:block;font-family:var(--fm);font-size:.42em;color:rgba(255,255,255,.55);letter-spacing:.07em;font-weight:400;margin-top:2px}
+.proj{display:flex;flex-direction:column;gap:2px}
+.proj-name{font-family:var(--fc);font-weight:700;font-size:1.1rem}
+.proj-loc{font-family:var(--fm);font-size:.72rem;color:rgba(255,255,255,.6)}
+
+/* GPS PILL */
+.gps-pill{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.28);border-radius:24px;padding:8px 14px;cursor:pointer;min-height:var(--touch);transition:background .2s;border:1px solid rgba(255,255,255,.1)}
+.gps-pill:active{background:rgba(0,0,0,.5)}
+.gps-dot{width:11px;height:11px;border-radius:50%;background:var(--gps-off);transition:background .3s;flex-shrink:0}
+.gps-dot.on{background:var(--gps-on);box-shadow:0 0 8px var(--gps-on)}
+.gps-dot.wait{background:var(--gps-wait);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.gps-txt{font-family:var(--fm);font-size:.78rem;color:rgba(255,255,255,.9);white-space:nowrap;font-weight:500}
+.save-dot{width:10px;height:10px;border-radius:50%;background:var(--gps-on);transition:background .3s;flex-shrink:0}
+.save-dot.dirty{background:var(--straw)}
+.badge{background:var(--straw);color:var(--ink);font-family:var(--fm);font-size:.72rem;font-weight:600;padding:5px 10px;border-radius:4px;letter-spacing:.04em}
+
+/* ── GPS BAR ── */
+.gps-bar{background:#1a3a1f;border-bottom:2px solid rgba(255,255,255,.08);padding:12px 16px;display:none}
+.gps-bar.show{display:block}
+.gps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.gps-field{display:flex;flex-direction:column;gap:3px}
+.gps-lbl{font-family:var(--fm);font-size:.68rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em}
+.gps-val{font-family:var(--fm);font-size:1rem;color:#fff;font-weight:600;letter-spacing:.02em}
+.acc-bar{height:4px;border-radius:2px;margin-top:4px;background:var(--gps-on);transition:width .5s}
+
+/* GPS WARNING BANNER */
+.gps-warning{background:rgba(231,76,60,.15);border:2px solid var(--gps-off);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;font-size:.9rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+
+/* ── CONTROL BAR ── */
+.cbar{background:var(--mist);border-bottom:2px solid var(--rule);padding:12px 16px}
+.cgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.flabel{font-family:var(--fm);font-size:.72rem;font-weight:600;color:var(--sage);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;display:block}
+.finput{width:100%;padding:12px 13px;border:2px solid var(--rule);border-radius:var(--radius);background:var(--card);font-family:var(--fb);font-size:1rem;color:var(--ink);transition:border-color .2s;min-height:var(--touch)}
+.finput:focus{outline:none;border-color:var(--sage);background:#fff}
+
+/* Transect GPS row */
+.t-gps{background:rgba(45,90,39,.07);border:2px dashed var(--sage);border-radius:var(--radius);padding:12px 14px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end}
+.t-gps-lbl{font-family:var(--fm);font-size:.68rem;font-weight:600;color:var(--sage);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;display:block}
+.t-gps-val{font-family:var(--fm);font-size:.9rem;color:var(--ink);padding:10px 12px;background:var(--card);border:2px solid var(--rule);border-radius:var(--radius);min-height:44px;display:flex;align-items:center;font-weight:500}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--ink);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:90px;padding:14px 10px;border:none;background:transparent;color:rgba(255,255,255,.4);font-family:var(--fc);font-weight:700;font-size:.95rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-bottom:4px solid transparent;white-space:nowrap;transition:all .2s;min-height:var(--touch)}
+.tab.on{color:var(--straw);border-bottom-color:var(--straw)}
+.tab:not(.on):active{color:rgba(255,255,255,.75)}
+
+/* ── MAIN ── */
+.main{padding:14px;max-width:1400px}
+.panel{display:none}.panel.on{display:block}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:2px solid var(--rule);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.card-hd{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:2px solid var(--rule);background:rgba(0,0,0,.02)}
+.card-title{font-family:var(--fc);font-weight:700;font-size:1.05rem;color:var(--moss);letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.chip{font-family:var(--fm);font-size:.68rem;padding:3px 8px;border-radius:4px;font-weight:600}
+.chip-g{background:rgba(45,90,39,.12);color:var(--moss)}
+.chip-y{background:rgba(200,168,75,.2);color:#7a5e1a}
+.chip-b{background:rgba(44,110,138,.12);color:var(--sky)}
+.chip-r{background:rgba(192,57,43,.12);color:var(--red)}
+
+/* ── TABLE ── */
+.ft{width:100%;border-collapse:collapse}
+.ft thead tr{background:rgba(45,90,39,.06)}
+.ft th{padding:10px 10px;font-family:var(--fm);font-size:.72rem;font-weight:600;color:var(--sage);text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid var(--rule);white-space:nowrap}
+.ft td{border-bottom:1px solid rgba(196,207,192,.5);padding:5px 5px;vertical-align:middle}
+.ft tr:last-child td{border-bottom:none}
+.ft tr:hover td{background:rgba(74,124,66,.04)}
+.ft tr.nom-row td{background:rgba(200,168,75,.09)!important}
+/* All inputs inside table: large touch targets */
+.ti{width:100%;padding:10px 11px;border:2px solid transparent;border-radius:8px;background:var(--mist);font-family:var(--fb);font-size:1rem;color:var(--ink);transition:all .2s;min-height:44px}
+.ti:focus{outline:none;border-color:var(--sage);background:#fff;box-shadow:0 0 0 3px rgba(74,124,66,.15)}
+.ti.warn{border-color:var(--red)!important}
+.ti-coord{font-family:var(--fm);font-size:.82rem;background:var(--sage-lt);color:var(--moss);font-weight:500}
+.ti-coord.empty{background:var(--mist);color:#aaa;font-weight:400}
+.tsel{width:100%;padding:10px 8px;border:2px solid transparent;border-radius:8px;background:var(--mist);font-size:1rem;color:var(--ink);cursor:pointer;min-height:44px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234a7c42' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.tsel:focus{outline:none;border-color:var(--sage)}
+
+/* GPS button in table */
+.gps-btn{padding:10px 12px;border:none;border-radius:8px;background:var(--moss);color:#fff;font-family:var(--fm);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .18s;display:inline-flex;align-items:center;gap:4px;min-height:44px;min-width:80px;justify-content:center}
+.gps-btn:active{transform:scale(.93);background:var(--sage)}
+.gps-btn.capturing{background:var(--gps-wait);animation:pulse 1s infinite}
+.gps-btn.done{background:var(--gps-on)}
+.gps-btn.err{background:var(--red)}
+
+/* ── ACTION BUTTONS ── */
+.btn{padding:14px 12px;border:none;border-radius:var(--radius);font-family:var(--fc);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .18s;white-space:nowrap;min-height:var(--touch)}
+.btn:active{transform:scale(.96)}
+.btn-g{background:var(--moss);color:#fff}
+.btn-y{background:#7a5e1a;color:#fff}
+.btn-b{background:var(--sky);color:#fff}
+.btn-o{background:var(--amber);color:#fff}
+.btn-r{background:var(--red);color:#fff}
+.btn-s{background:#555;color:#fff}
+.btn-sm{padding:10px 13px;font-size:.84rem;min-height:40px}
+.btns{display:grid;gap:10px;margin-bottom:14px}
+.btns-2{grid-template-columns:1fr 1fr}
+.btns-3{grid-template-columns:repeat(3,1fr)}
+.btns-4{grid-template-columns:repeat(4,1fr)}
+
+/* ── STATS BAR ── */
+.sbar{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.sc{background:var(--card);border:2px solid var(--rule);border-radius:var(--radius);padding:12px 10px;text-align:center}
+.snum{font-family:var(--fc);font-weight:900;font-size:2.4rem;color:var(--moss);line-height:1}
+.slbl{font-family:var(--fm);font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ── RESULTS ── */
+.idx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
+.idx-card{border:2px solid var(--rule);border-radius:var(--radius);padding:13px;background:var(--mist)}
+.idx-name{font-family:var(--fm);font-size:.72rem;color:var(--sage);font-weight:600;margin-bottom:3px}
+.idx-formula{font-family:var(--fm);font-size:.62rem;color:#b0b8a8;margin-bottom:5px}
+.idx-val{font-family:var(--fc);font-weight:900;font-size:2.1rem;color:var(--moss);line-height:1}
+.idx-interp{font-size:.78rem;color:#666;margin-top:4px}
+.ivi-bar{height:5px;border-radius:3px;margin-top:4px;opacity:.45}
+.res-hd{padding:11px 14px;font-family:var(--fc);font-weight:700;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;color:#fff}
+
+/* ── VEG BANNER ── */
+.veg-banner{background:rgba(139,94,60,.08);border:2px solid var(--clay);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start;font-size:.9rem;line-height:1.5}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:36px 20px;color:#bbb}
+.empty-i{font-size:2.8rem;margin-bottom:10px}
+.empty-t{font-family:var(--fc);font-size:1.15rem;letter-spacing:.04em}
+
+/* ── NOM alert ── */
+.nom-alert{background:var(--straw-lt);border:2px solid var(--straw);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;font-size:.9rem;line-height:1.5}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── MAP ── */
+.map-wrap{width:100%;height:460px;border-radius:var(--radius);overflow:hidden;border:2px solid var(--rule);background:#ede9df;position:relative}
+
+/* ── GPS MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.modal h3{font-family:var(--fc);font-weight:700;font-size:1.3rem;margin-bottom:16px;color:var(--moss)}
+.modal-coords{font-family:var(--fm);font-size:1rem;line-height:2;background:var(--mist);border-radius:8px;padding:13px 16px;margin-bottom:14px}
+.modal-btns{display:flex;gap:10px}
+
+/* ── T-ROW (historial) ── */
+.t-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--rule)}
+.t-row:last-child{border-bottom:none}
+
+/* ── FADE IN ── */
+.fi{animation:fi .28s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── RESPONSIVE (landscape tablet) ── */
+@media(max-width:900px){
+  .cgrid{grid-template-columns:1fr 1fr 1fr}
+  .btns-4{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+  .cgrid{grid-template-columns:1fr 1fr}
+  .sbar{grid-template-columns:repeat(3,1fr)}
+  .idx-grid{grid-template-columns:1fr 1fr}
+  .t-gps{grid-template-columns:1fr 1fr}
+  .gps-grid{grid-template-columns:1fr 1fr}
+  .mh-inner{grid-template-columns:auto 1fr auto auto}
+}
+@media(max-width:440px){
+  :root{--base:17px}
+  .sbar{grid-template-columns:1fr 1fr}
+  .btns-3{grid-template-columns:1fr 1fr}
+}
+/* Touch scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--mist)}
+::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px}
+/* Remove 300ms tap delay */
+a,button,input,select{touch-action:manipulation}
+</style>
+</head>
+<body>
+
+<!-- ══════════ MASTHEAD ══════════ -->
+<header class="mh">
+  <div class="mh-inner">
+    <div class="brand">CYCNA<small>Los Pelones v4</small></div>
+    <div class="proj">
+      <span class="proj-name">Muestreo Vegetal · GPS</span>
+      <span class="proj-loc">Ojocaliente, Zac. · SEMARNAT-04-008</span>
+    </div>
+    <div class="gps-pill" onclick="toggleGpsBar()" title="Estado GPS">
+      <div class="gps-dot" id="gpsDot"></div>
+      <span class="gps-txt" id="gpsTxt">GPS</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="save-dot" id="saveDot" title="Estado guardado"></div>
+        <span id="saveTime" style="font-family:var(--fm);font-size:.57em;color:rgba(255,255,255,.5);white-space:nowrap">Cargando...</span>
+      </div>
+      <button onclick="resetAll()" style="border:none;background:rgba(192,57,43,.75);color:#fff;font-family:var(--fm);font-size:.58em;font-weight:600;padding:3px 8px;border-radius:3px;cursor:pointer;letter-spacing:.04em;white-space:nowrap" title="Borrar todos los datos permanentemente">🗑 RESET TODO</button>
+    </div>
+    <span class="badge" id="hdrBadge">Campo</span>
+  </div>
+</header>
+
+<!-- ══════════ GPS INFO BAR ══════════ -->
+<div class="gps-bar" id="gpsBar">
+  <div class="gps-grid">
+    <div class="gps-field"><div class="gps-lbl">Latitud (WGS84)</div><div class="gps-val" id="gLat">—</div></div>
+    <div class="gps-field"><div class="gps-lbl">Longitud (WGS84)</div><div class="gps-val" id="gLon">—</div></div>
+    <div class="gps-field"><div class="gps-lbl">Altitud (m)</div><div class="gps-val" id="gAlt">—</div></div>
+    <div class="gps-field">
+      <div class="gps-lbl">Precisión (m) <span id="gAccLbl" style="font-size:.85em;color:var(--gps-off)">●</span></div>
+      <div class="gps-val" id="gAcc">—</div>
+      <div class="acc-bar" id="gAccBar" style="width:0%"></div>
+    </div>
+  </div>
+  <div style="margin-top:7px;display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:7px;align-items:center">
+    <div class="gps-field"><div class="gps-lbl">UTM Este (X)</div><div class="gps-val" id="gUtmE">—</div></div>
+    <div class="gps-field"><div class="gps-lbl">UTM Norte (Y)</div><div class="gps-val" id="gUtmN">—</div></div>
+    <div class="gps-field"><div class="gps-lbl">Zona UTM</div><div class="gps-val" id="gUtmZ">—</div></div>
+    <div style="text-align:right">
+      <button class="btn btn-g btn-sm" onclick="startGps()">📡 Iniciar GPS</button>
+      <button class="btn btn-s btn-sm" style="margin-left:5px" onclick="stopGps()">⏹ Detener</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CONTROL BAR ══════════ -->
+<div class="cbar">
+  <div class="cgrid">
+    <div><div class="flabel">Transecto No.</div><input type="number" id="tid" class="finput" value="1" min="1" max="18" onchange="markDirty()"></div>
+    <div><div class="flabel">Biólogo</div><input type="text" id="bio" class="finput" value="L.F. Lozano" onchange="markDirty()"></div>
+    <div><div class="flabel">Fecha</div><input type="date" id="fecha" class="finput" onchange="markDirty()"></div>
+    <div><div class="flabel">Hora inicio</div><input type="time" id="hora" class="finput" onchange="markDirty()"></div>
+    <div><div class="flabel">Condición</div>
+      <select id="cond" class="finput" onchange="markDirty()">
+        <option>Despejado</option><option>Nublado parcial</option><option>Nublado</option><option>Llovizna</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- T° / H% row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:10px;padding:10px 14px;background:rgba(44,110,138,.06);border:2px dashed rgba(44,110,138,.3);border-radius:var(--radius)">
+    <div>
+      <div class="flabel" style="color:var(--sky)">🌡 T° inicio (°C)</div>
+      <input type="number" id="t_ini" class="finput" placeholder="ej. 22.5" step="0.1" onchange="markDirty();scheduleAutoSave()">
+    </div>
+    <div>
+      <div class="flabel" style="color:var(--sky)">💧 H% inicio (%)</div>
+      <input type="number" id="h_ini" class="finput" placeholder="ej. 45" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()">
+    </div>
+    <div>
+      <div class="flabel" style="color:var(--sky)">🌡 T° final (°C)</div>
+      <input type="number" id="t_fin" class="finput" placeholder="ej. 28.0" step="0.1" onchange="markDirty();scheduleAutoSave()">
+    </div>
+    <div>
+      <div class="flabel" style="color:var(--sky)">💧 H% final (%)</div>
+      <input type="number" id="h_fin" class="finput" placeholder="ej. 38" step="0.1" min="0" max="100" onchange="markDirty();scheduleAutoSave()">
+    </div>
+    <div>
+      <div class="flabel" style="color:var(--sky)">⏱ Hora final</div>
+      <input type="time" id="hora_fin" class="finput" onchange="markDirty();scheduleAutoSave()">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn btn-b btn-sm" onclick="fetchWeather()" id="btnWeather" title="Obtiene T° y H% actuales por GPS (requiere internet)">
+        🌐 API clima
+      </button>
+      <div id="weatherStatus" style="font-family:var(--fm);font-size:.62rem;color:var(--sky);text-align:center;min-height:16px"></div>
+    </div>
+  </div>
+
+  <!-- Transect GPS -->
+  <div class="t-gps">
+    <div>
+      <div class="t-gps-lbl">📍 Lat. inicio transecto</div>
+      <div class="t-gps-val" id="tLatStart">Sin captura</div>
+    </div>
+    <div>
+      <div class="t-gps-lbl">📍 Lon. inicio transecto</div>
+      <div class="t-gps-val" id="tLonStart">Sin captura</div>
+    </div>
+    <div>
+      <div class="t-gps-lbl">UTM E / N</div>
+      <div class="t-gps-val" id="tUtmStart" style="font-family:var(--fm);font-size:.75em">Sin captura</div>
+    </div>
+    <button class="btn btn-g btn-sm" onclick="captureTransectGps()" id="btnTGps">📡 Capturar inicio</button>
+  </div>
+</div>
+
+<!-- ══════════ TABS ══════════ -->
+<nav class="tabs">
+  <button class="tab on"  onclick="goTab('cap',this)">📋 Captura</button>
+  <button class="tab"     onclick="goTab('res',this)">📊 Resultados</button>
+  <button class="tab"     onclick="goTab('jac',this)">🔗 Jaccard</button>
+  <button class="tab"     onclick="goTab('hist',this)">🗂 Transectos</button>
+  <button class="tab"     onclick="goTab('nom',this)">🌿 NOM-059</button>
+  <button class="tab"     onclick="goTab('mapa',this)">🗺 Mapa</button>
+  <button class="tab"     onclick="goTab('exp',this)">💾 Exportar</button>
+</nav>
+
+<div class="main">
+
+<!-- ══════════════════════════════════════════════
+     TAB 1 · CAPTURA
+══════════════════════════════════════════════ -->
+<div id="tab-cap" class="panel on">
+
+  <div class="veg-banner">
+    <span style="font-size:1.4em;line-height:1">🏜️</span>
+    <div><b style="font-family:var(--fm);color:var(--clay);font-size:.86em">Pastizal semiárido con Matorral Xerófilo disperso — Ojocaliente, Zac.</b><br>
+    <span style="color:#777;font-size:.93em">Sustrato calcáreo-pedregoso · Cob. herbácea ~15–30% · Leñosas &lt;2 m · Transectos 2×50 m</span></div>
+  </div>
+
+
+  <!-- GPS warning: compact pill button, expands on tap -->
+  <div id="gpsFileWarn" style="display:none;margin-bottom:12px">
+    <button onclick="toggleGpsWarn()" style="display:flex;align-items:center;gap:8px;background:rgba(192,57,43,.1);border:2px solid var(--red);border-radius:8px;padding:10px 14px;cursor:pointer;width:100%;text-align:left;font-family:var(--fb);font-size:.9rem;color:var(--red);font-weight:600;transition:background .2s" id="gpsWarnBtn">
+      <span style="font-size:1.2em;flex-shrink:0">⚠️</span>
+      <span style="flex:1">GPS no disponible — archivo abierto localmente (file://)</span>
+      <span id="gpsWarnChevron" style="font-family:var(--fm);font-size:.75rem;opacity:.6">▼ ver solución</span>
+    </button>
+    <div id="gpsWarnDetail" style="display:none;background:rgba(192,57,43,.06);border:2px solid var(--red);border-top:none;border-radius:0 0 8px 8px;padding:14px 16px;font-size:.87rem;line-height:1.7">
+      <b>Solución rápida — tablet Android:</b><br>
+      1. Instale <b>Simple HTTP Server</b> desde Play Store (gratis)<br>
+      2. Apunte a la carpeta del archivo y toque <b>Start</b><br>
+      3. Abra Chrome → <code style="background:rgba(0,0,0,.08);padding:2px 6px;border-radius:3px;font-family:var(--fm);font-size:.85em">http://localhost:8080/pelones_v4.html</code><br><br>
+      <b>Windows — CMD en la carpeta del archivo:</b><br>
+      <code style="background:rgba(0,0,0,.08);padding:3px 8px;border-radius:3px;font-family:var(--fm);font-size:.85em;display:inline-block;margin:2px 0">python -m http.server 8080</code><br>
+      Luego abra → <code style="background:rgba(0,0,0,.08);padding:2px 6px;border-radius:3px;font-family:var(--fm);font-size:.85em">http://localhost:8080/pelones_v4.html</code>
+    </div>
+  </div>
+
+  <div class="sbar">
+    <div class="sc"><div class="snum" id="cntMat">0</div><div class="slbl">Mat. ind.</div></div>
+    <div class="sc"><div class="snum" id="cntPas">0</div><div class="slbl">Cuad. pas.</div></div>
+    <div class="sc"><div class="snum" id="cntSp">0</div><div class="slbl">Especies</div></div>
+    <div class="sc"><div class="snum" id="cntNom">0</div><div class="slbl">NOM-059</div></div>
+    <div class="sc"><div class="snum" id="cntGps" style="font-size:1.5em">0</div><div class="slbl">Pts GPS</div></div>
+  </div>
+
+  <!-- MATORRAL -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">🌵 Matorral Xerófilo <span class="chip chip-g">Censo individual · 2×50 m</span></div>
+      <span id="matCnt" style="font-family:var(--fm);font-size:.73em;color:var(--sage)">0 ind.</span>
+    </div>
+    <div class="tscroll">
+    <table class="ft">
+      <thead><tr>
+        <th style="width:24px">#</th>
+        <th style="min-width:155px">Especie</th>
+        <th style="min-width:110px">Nombre común</th>
+        <th style="min-width:70px">Ø Copa(m)</th>
+        <th style="min-width:65px">Alt.(m)</th>
+        <th style="min-width:85px">FV</th>
+        <th style="min-width:100px">NOM-059</th>
+        <th style="min-width:100px">Latitud GPS</th>
+        <th style="min-width:100px">Longitud GPS</th>
+        <th style="min-width:80px">UTM E</th>
+        <th style="min-width:80px">UTM N</th>
+        <th style="min-width:65px">Alt.GPS(m)</th>
+        <th style="min-width:60px">Acc.(m)</th>
+        <th style="min-width:75px">📡 GPS</th>
+        <th style="min-width:130px">Observaciones</th>
+        <th style="width:28px"></th>
+      </tr></thead>
+      <tbody id="bMat"></tbody>
+    </table>
+    </div>
+    <div id="eMat" class="empty"><div class="empty-i">🌵</div><div class="empty-t">Sin registros</div></div>
+  </div>
+
+  <!-- PASTIZAL -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">🌾 Pastizal <span class="chip chip-y">Sub-cuad. 1 m² · pts 0/25/50 m · %Cob.</span></div>
+      <span id="pasCnt" style="font-family:var(--fm);font-size:.73em;color:#7a5e1a">0 cuad.</span>
+    </div>
+    <div class="tscroll">
+    <table class="ft">
+      <thead><tr>
+        <th style="min-width:45px">Cuad.</th>
+        <th style="min-width:55px">Pto(m)</th>
+        <th style="min-width:165px">Especie</th>
+        <th style="min-width:80px">% Cob.</th>
+        <th style="min-width:100px">FV</th>
+        <th style="min-width:100px">Latitud GPS</th>
+        <th style="min-width:100px">Longitud GPS</th>
+        <th style="min-width:80px">UTM E</th>
+        <th style="min-width:80px">UTM N</th>
+        <th style="min-width:65px">📡 GPS</th>
+        <th style="min-width:110px">Observaciones</th>
+        <th style="width:28px"></th>
+      </tr></thead>
+      <tbody id="bPas"></tbody>
+    </table>
+    </div>
+    <div id="ePas" class="empty"><div class="empty-i">🌾</div><div class="empty-t">Sin registros</div></div>
+  </div>
+
+  <div class="btns btns-4">
+    <button class="btn btn-g" onclick="addMat()">+ Individuo Matorral</button>
+    <button class="btn btn-y" onclick="addPas()">+ Sub-cuadrante Pastizal</button>
+    <button class="btn btn-b" onclick="analyze()">📊 Calcular todo</button>
+    <button class="btn btn-s" onclick="saveSession()">💾 Guardar</button>
+  </div>
+  <div class="btns btns-3">
+    <button class="btn btn-o" onclick="goTab('exp',document.querySelectorAll('.tab')[6])">📥 Exportar Excel</button>
+    <button class="btn btn-s" onclick="loadPrev()">📂 Cargar guardado</button>
+    <button class="btn btn-r" onclick="clearCurrent()">🗑 Limpiar</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 2 · RESULTADOS
+══════════════════════════════════════════════ -->
+<div id="tab-res" class="panel">
+  <div id="resEmpty" class="empty" style="margin-bottom:14px">
+    <div class="empty-i">📊</div><div class="empty-t">Captura datos y presiona "Calcular todo"</div>
+  </div>
+  <div id="resContent" style="display:none">
+    <div class="card" style="margin-bottom:11px">
+      <div class="res-hd" style="background:var(--moss)">🌵 IVI — Matorral Xerófilo (base 300)</div>
+      <div style="padding:7px 12px;font-size:.75em;color:#777;font-family:var(--fm)">IVI = Dens.Rel(%) + Dom.Rel(%) + Frec.Rel(%) · Dom = área basal copa (π·r²)</div>
+      <div class="tscroll">
+      <table class="ft" id="iviMatT">
+        <thead><tr><th>Especie</th><th>N</th><th>D abs(ind/ha)</th><th>D rel%</th><th>Dom abs(m²/ha)</th><th>Dom rel%</th><th>F abs</th><th>F rel%</th><th style="color:var(--sky)">IVI</th><th>NOM</th></tr></thead>
+        <tbody id="iviMatB"></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-bottom:11px">
+      <div class="res-hd" style="background:var(--clay)">🌾 IVI — Pastizal (base 200)</div>
+      <div style="padding:7px 12px;font-size:.75em;color:#777;font-family:var(--fm)">IVI = Dens.Rel(%) + Dom.Rel(%cobertura)</div>
+      <div class="tscroll">
+      <table class="ft" id="iviPasT">
+        <thead><tr><th>Especie</th><th>N cuad.</th><th>D rel%</th><th>Cob acum%</th><th>Dom rel%</th><th style="color:var(--sky)">IVI</th></tr></thead>
+        <tbody id="iviPasB"></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-bottom:11px">
+      <div class="res-hd" style="background:var(--sky)">🔬 Índices de Biodiversidad — Matorral Xerófilo</div>
+      <div class="idx-grid" id="idxGrid"></div>
+    </div>
+    <div class="card">
+      <div class="res-hd" style="background:#444">📋 Interpretación Ecológica</div>
+      <div id="interpText" style="padding:12px;font-size:.86em;line-height:1.7;color:#333"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 3 · JACCARD
+══════════════════════════════════════════════ -->
+<div id="tab-jac" class="panel">
+  <div class="card">
+    <div class="card-hd"><div class="card-title">🔗 Índice de Similitud de Jaccard</div></div>
+    <div style="padding:12px">
+      <div style="font-size:.8em;color:#777;font-family:var(--fm);margin-bottom:11px">J = |A∩B| / |A∪B| · &gt;0.7 alta · 0.5–0.7 media · 0.3–0.5 baja · &lt;0.3 muy baja · Requiere ≥2 transectos analizados</div>
+      <div id="jacEmpty" class="empty"><div class="empty-i">🔗</div><div class="empty-t">Analiza ≥2 transectos para comparar</div></div>
+      <div id="jacContent" style="display:none">
+        <div class="tscroll"><table class="ft" id="jacTable"><thead><tr id="jacHead"></tr></thead><tbody id="jacBody"></tbody></table></div>
+        <div style="margin-top:10px;padding:9px;background:var(--sky-lt);border-radius:6px;font-size:.79em;color:var(--sky);font-family:var(--fm)" id="jacNotes"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 4 · HISTORIAL
+══════════════════════════════════════════════ -->
+<div id="tab-hist" class="panel">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">🗂 Transectos guardados</div>
+      <button class="btn btn-r btn-sm" onclick="clearAll()">🗑 Borrar todo</button>
+    </div>
+    <div id="histList" style="padding:12px"></div>
+  </div>
+  <div class="card" id="summCard" style="display:none">
+    <div class="res-hd" style="background:var(--moss)">📈 Resumen Global</div>
+    <div class="tscroll">
+    <table class="ft" id="summTable">
+      <thead><tr><th>T</th><th>N mat.</th><th>S tot.</th><th>H'</th><th>J'</th><th>D_Mg</th><th>Chao1</th><th>IVI max</th><th>NOM</th><th>GPS inicio</th></tr></thead>
+      <tbody id="summBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 5 · NOM-059
+══════════════════════════════════════════════ -->
+<div id="tab-nom" class="panel">
+  <div class="nom-alert"><b style="font-family:var(--fm);font-size:.84em">⚠️ NOM-059-SEMARNAT-2010</b><br>
+  Todos los individuos protegidos deben tener coordenadas GPS registradas para el Plan de Rescate.</div>
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">🌿 Especies bajo protección</div>
+      <span id="nomTotalCnt" style="font-family:var(--fm);font-size:.73em;color:var(--sage)">0 ind.</span>
+    </div>
+    <div class="tscroll">
+    <table class="ft" id="nomTable">
+      <thead><tr><th>Especie</th><th>Nombre común</th><th>Categoría</th><th>Transecto(s)</th><th>N ind.</th><th>FV</th><th>Latitud (prom.)</th><th>Longitud (prom.)</th></tr></thead>
+      <tbody id="nomBody"><tr><td colspan="8" class="empty" style="padding:20px;text-align:center;color:#bbb">Sin registros NOM-059</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 6 · MAPA
+══════════════════════════════════════════════ -->
+<div id="tab-mapa" class="panel">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">🗺 Mapa de puntos GPS capturados</div>
+      <button class="btn btn-b btn-sm" onclick="renderMap()">🔄 Actualizar</button>
+    </div>
+    <div style="padding:12px">
+      <div class="map-wrap" id="mapWrap">
+        <div class="map-placeholder"><div style="font-size:2em">🗺️</div><div style="font-family:var(--fm);font-size:.8em">Captura puntos GPS para ver el mapa</div></div>
+      </div>
+      <div id="mapLegend" style="margin-top:9px;font-size:.78em;color:#777;font-family:var(--fm)"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="card-title">📍 Todos los puntos capturados</div></div>
+    <div class="tscroll">
+    <table class="ft" id="gpsAllTable">
+      <thead><tr><th>Tipo</th><th>T</th><th>#</th><th>Especie</th><th>Latitud</th><th>Longitud</th><th>UTM E</th><th>UTM N</th><th>Alt.(m)</th><th>Acc.(m)</th><th>Hora</th></tr></thead>
+      <tbody id="gpsAllBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 7 · EXPORTAR
+══════════════════════════════════════════════ -->
+<div id="tab-exp" class="panel">
+  <div class="card">
+    <div class="card-hd"><div class="card-title">💾 Exportar a Excel</div></div>
+    <div style="padding:12px;display:grid;gap:9px">
+      <div style="background:var(--mist);border-radius:6px;padding:10px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--sage);font-weight:600;margin-bottom:7px">TRANSECTO ACTUAL</div>
+        <div class="btns btns-3" style="margin:0">
+          <button class="btn btn-g" onclick="exportRaw()">📄 Datos crudos</button>
+          <button class="btn btn-b" onclick="exportAnalysis()">📊 Análisis</button>
+          <button class="btn btn-o" onclick="exportFull()">📦 Completo</button>
+        </div>
+      </div>
+      <div style="background:var(--mist);border-radius:6px;padding:10px">
+        <div style="font-family:var(--fm);font-size:.7em;color:var(--sage);font-weight:600;margin-bottom:7px">TODOS LOS TRANSECTOS</div>
+        <div class="btns btns-3" style="margin:0">
+          <button class="btn btn-g" onclick="exportAllRaw()">📄 Crudos global</button>
+          <button class="btn btn-b" onclick="exportAllAnalysis()">📊 Análisis global</button>
+          <button class="btn btn-o" onclick="exportAllFull()">📦 Libro maestro</button>
+        </div>
+      </div>
+      <div style="background:var(--sky-lt);border-radius:6px;padding:10px;font-size:.8em;color:var(--sky)">
+        <b style="font-family:var(--fm)">Hojas en libro maestro:</b><br>
+        Datos_Matorral · Datos_Pastizal · IVI_Matorral · IVI_Pastizal · Indices_Biodiversidad · Similitud_Jaccard · NOM_059 · GPS_Todos_Puntos · Resumen_Global
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ══════════ GPS MODAL ══════════ -->
+<div class="modal-bg" id="gpsModal">
+  <div class="modal">
+    <h3>📡 Capturando GPS...</h3>
+    <div class="modal-coords" id="modalCoords">Obteniendo señal GPS...<br>Por favor espere.</div>
+    <div id="modalAcc" style="font-family:var(--fm);font-size:.78em;color:#888;margin-bottom:12px"></div>
+    <div class="modal-btns">
+      <button class="btn btn-g" style="flex:1" onclick="confirmGps()">✅ Usar estas coordenadas</button>
+      <button class="btn btn-s" style="flex:0 0 auto" onclick="cancelGps()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DATALISTS -->
+<datalist id="dlMat">
+  <option value="Prosopis laevigata"><option value="Acacia farnesiana"><option value="Acacia schaffneri">
+  <option value="Mimosa biuncifera"><option value="Mimosa depauperata"><option value="Larrea tridentata">
+  <option value="Flourensia cernua"><option value="Parthenium incanum"><option value="Jatropha dioica">
+  <option value="Dalea bicolor"><option value="Lippia graveolens"><option value="Opuntia streptacantha">
+  <option value="Opuntia robusta"><option value="Opuntia leucotricha"><option value="Cylindropuntia imbricata">
+  <option value="Cylindropuntia leptocaulis"><option value="Echinocactus platyacanthus"><option value="Ferocactus histrix">
+  <option value="Mammillaria magnimamma"><option value="Mammillaria rhodantha"><option value="Coryphantha conifera">
+  <option value="Stenocereus queretaroensis"><option value="Myrtillocactus geometrizans"><option value="Agave lechuguilla">
+  <option value="Agave salmiana"><option value="Agave durangensis"><option value="Yucca filifera">
+  <option value="Fouquieria splendens">
+</datalist>
+<datalist id="dlPas">
+  <option value="Bouteloua gracilis"><option value="Bouteloua curtipendula"><option value="Bouteloua hirsuta">
+  <option value="Aristida adscensionis"><option value="Aristida ternipes"><option value="Muhlenbergia rigida">
+  <option value="Muhlenbergia phleoides"><option value="Sporobolus cryptandrus"><option value="Heteropogon contortus">
+  <option value="Lycurus phleoides"><option value="Digitaria californica"><option value="Cenchrus ciliaris">
+  <option value="Hilaria mutica"><option value="Krameria cytisoides"><option value="Zinnia acerosa">
+  <option value="Dyssodia spp."><option value="Pectis multiseta"><option value="Suelo desnudo"><option value="Roca / Grava">
+</datalist>
+
+<!-- ════════════════ SCRIPTS ════════════════ -->
+<script>
+// ══════════════════════════════════════════════════════════
+// DICTIONARIES
+// ══════════════════════════════════════════════════════════
+const CN={
+  'prosopis laevigata':'Mezquite chino','acacia farnesiana':'Huizache',
+  'acacia schaffneri':'Huizache chino','mimosa biuncifera':'Uña de gato',
+  'mimosa depauperata':'Garrancho','larrea tridentata':'Gobernadora',
+  'flourensia cernua':'Hojasén','parthenium incanum':'Mariola',
+  'jatropha dioica':'Sangre de grado','dalea bicolor':'Engorda cabra',
+  'lippia graveolens':'Orégano del monte','opuntia streptacantha':'Nopal cardón',
+  'opuntia robusta':'Nopal tapón','opuntia leucotricha':'Nopal duraznillo',
+  'cylindropuntia imbricata':'Cardenche','cylindropuntia leptocaulis':'Tasajillo',
+  'echinocactus platyacanthus':'Biznaga barril','ferocactus histrix':'Biznaga colorada',
+  'mammillaria magnimamma':'Biznaguita','mammillaria rhodantha':'Biznaguita rosada',
+  'coryphantha conifera':'Biznaguita ancla','stenocereus queretaroensis':'Pitaya',
+  'myrtillocactus geometrizans':'Garambullo','agave lechuguilla':'Lechuguilla',
+  'agave salmiana':'Maguey pulquero','agave durangensis':'Maguey serrano',
+  'yucca filifera':'Palma china','fouquieria splendens':'Ocotillo',
+  'bouteloua gracilis':'Navajita azul','bouteloua curtipendula':'Banderilla',
+  'aristida adscensionis':'Tres barbas','muhlenbergia rigida':'Liendrilla dura',
+  'heteropogon contortus':'Zacate cueruda','cenchrus ciliaris':'Buffel (invasora)',
+};
+const NOM_DB={
+  'echinocactus platyacanthus':'Pr','ferocactus histrix':'Pr',
+  'mammillaria magnimamma':'Pr','mammillaria rhodantha':'Pr',
+  'coryphantha conifera':'Pr','agave lechuguilla':'Pr',
+  'agave salmiana':'Pr','agave durangensis':'Pr',
+  'myrtillocactus geometrizans':'Pr','prosopis laevigata':'Pr',
+  'cylindropuntia imbricata':'Pr','stenocereus queretaroensis':'A',
+  'yucca filifera':'A','fouquieria splendens':'A',
+};
+const NOM_LBL={'Pr':'Prot. especial','A':'Amenazada','P':'Peligro extinción'};
+const FV_MAT=['Arbustivo','Arborescente','Cactácea columnar','Cactácea globosa','Agavácea','Suculenta'];
+const FV_PAS=['Gramínea perenne','Gramínea anual','Herbácea perenne','Herbácea anual','Suculenta','Suelo desnudo','Roca/grava'];
+
+// ══════════════════════════════════════════════════════════
+// GPS STATE
+// ══════════════════════════════════════════════════════════
+let gpsWatchId = null;
+let currentPos = null;       // live position
+let captureTarget = null;    // { type:'mat'|'pas'|'transect', row }
+let capturedPos = null;      // position being confirmed in modal
+let transectGps = { lat:null, lon:null, alt:null, acc:null, utmE:null, utmN:null, zone:null };
+let isDirty = false;
+let matRC = 0, pasQC = 0;
+let savedTransects = {};
+let currentResults = null;
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+window.onload = () => {
+  const now = new Date();
+  document.getElementById('fecha').valueAsDate = now;
+  document.getElementById('hora').value =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  // ── Detect file:// protocol — GPS won't work ──
+  if(window.location.protocol === 'file:'){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+    setGpsStatus('off','No disponible (file://)');
+  }
+
+  const hadData = loadFromStorage();
+  if(hadData){
+    const nT=Object.keys(savedTransects).length;
+    const restored=restoreAllTransects();
+    updateCounts();
+    if(restored>0){
+      const totalMat=Object.values(savedTransects).reduce((s,t)=>s+(t.mat?.length||0),0);
+      setTimeout(()=>showToast(
+        `📂 ${nT} transecto(s) restaurados · ${totalMat} individuos`,
+        'var(--sky)'
+      ),500);
+    }
+  } else {
+    document.getElementById('saveTime').textContent='Sin datos guardados';
+  }
+
+  // Auto-start GPS if permission already granted AND not file://
+  if(navigator.geolocation && window.location.protocol !== 'file:') {
+    navigator.permissions?.query({name:'geolocation'}).then(r => {
+      if(r.state === 'granted') startGps();
+    }).catch(() => {});
+  }
+};
+
+// ══════════════════════════════════════════════════════════
+// GPS ENGINE
+// ══════════════════════════════════════════════════════════
+function startGps() {
+  if(window.location.protocol === 'file:'){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+    showToast('⚠️ GPS no disponible en file:// — use servidor local','var(--red)');
+    return;
+  }
+  if(!navigator.geolocation) {
+    alert('Este dispositivo no soporta GPS / geolocalización.');
+    return;
+  }
+  setGpsStatus('wait','Buscando...');
+  showToast('📡 Activando GPS...','var(--moss)');
+  gpsWatchId = navigator.geolocation.watchPosition(
+    onGpsSuccess, onGpsError,
+    { enableHighAccuracy: true, timeout: 30000, maximumAge: 2000 }
+  );
+}
+
+function stopGps() {
+  if(gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  setGpsStatus('off','Detenido');
+}
+
+function onGpsSuccess(pos) {
+  currentPos = pos;
+  const { latitude: lat, longitude: lon, altitude: alt, accuracy: acc } = pos.coords;
+  const utm = latLonToUtm(lat, lon);
+
+  // Update GPS bar
+  document.getElementById('gLat').textContent = lat.toFixed(7);
+  document.getElementById('gLon').textContent = lon.toFixed(7);
+  document.getElementById('gAlt').textContent = alt ? alt.toFixed(1)+' m' : '—';
+  document.getElementById('gAcc').textContent = acc.toFixed(1)+' m';
+  document.getElementById('gUtmE').textContent = utm.E.toFixed(1);
+  document.getElementById('gUtmN').textContent = utm.N.toFixed(1);
+  document.getElementById('gUtmZ').textContent = utm.zone;
+
+  // Accuracy bar (green <5m, yellow <15m, red >15m)
+  const accPct = Math.max(0, 100 - Math.min(acc, 100));
+  const accBar = document.getElementById('gAccBar');
+  accBar.style.width = accPct+'%';
+  accBar.style.background = acc<5 ? 'var(--gps-on)' : acc<15 ? 'var(--gps-wait)' : 'var(--gps-off)';
+  const accLbl = document.getElementById('gAccLbl');
+  accLbl.style.color = acc<5 ? 'var(--gps-on)' : acc<15 ? 'var(--gps-wait)' : 'var(--gps-off)';
+
+  const qual = acc<5 ? '●●●' : acc<15 ? '●●○' : '●○○';
+  setGpsStatus('on', `±${acc.toFixed(0)}m ${qual}`);
+
+  // Update modal if active
+  if(document.getElementById('gpsModal').classList.contains('show')) {
+    capturedPos = { lat, lon, alt, acc, utmE: utm.E, utmN: utm.N, zone: utm.zone,
+                    time: new Date().toLocaleTimeString() };
+    document.getElementById('modalCoords').innerHTML =
+      `<b>Lat:</b> ${lat.toFixed(7)}<br>
+       <b>Lon:</b> ${lon.toFixed(7)}<br>
+       <b>Alt:</b> ${alt ? alt.toFixed(1)+' m' : '—'}<br>
+       <b>UTM E:</b> ${utm.E.toFixed(1)}<br>
+       <b>UTM N:</b> ${utm.N.toFixed(1)}<br>
+       <b>Zona:</b> ${utm.zone}`;
+    document.getElementById('modalAcc').textContent = `Precisión: ±${acc.toFixed(1)} m · ${acc<5?'✅ Excelente':acc<15?'⚠️ Aceptable':'❌ Baja — espere mejora'}`;
+  }
+}
+
+function onGpsError(err) {
+  const msgs = {
+    1:'Permiso denegado. Active la ubicación en Configuración → Chrome → Ubicación.',
+    2:'Señal GPS no disponible. Salga al exterior e intente de nuevo.',
+    3:'Tiempo de espera agotado. Verifique que el GPS esté activo.'
+  };
+  const msg = msgs[err.code] || 'Error GPS desconocido.';
+  setGpsStatus('off', msgs[err.code]?.split('.')[0] || 'Error');
+  showToast('❌ '+msg, 'var(--red)');
+  if(err.code === 1){
+    const w=document.getElementById('gpsFileWarn');
+    if(w) w.style.display='block';
+  }
+}
+
+function toggleGpsWarn(){
+  const d=document.getElementById('gpsWarnDetail');
+  const c=document.getElementById('gpsWarnChevron');
+  const open=d.style.display==='none';
+  d.style.display=open?'block':'none';
+  c.textContent=open?'▲ cerrar':'▼ ver solución';
+}
+
+function setGpsStatus(state, txt) {
+  const dot = document.getElementById('gpsDot');
+  const lbl = document.getElementById('gpsTxt');
+  dot.className = 'gps-dot' + (state==='on'?' on':state==='wait'?' wait':'');
+  lbl.textContent = txt;
+}
+
+function toggleGpsBar() {
+  document.getElementById('gpsBar').classList.toggle('show');
+}
+
+// ── Capture GPS for transect start ──
+function captureTransectGps() {
+  if(!currentPos && !navigator.geolocation) {
+    alert('GPS no disponible.'); return;
+  }
+  captureTarget = { type:'transect' };
+  openGpsModal();
+  if(!gpsWatchId) startGps();
+}
+
+// ── Capture GPS for individual row ──
+function captureRowGps(btn, type) {
+  captureTarget = { type, row: btn.closest('tr') };
+  openGpsModal();
+  if(!gpsWatchId) startGps();
+}
+
+function openGpsModal() {
+  capturedPos = null;
+  document.getElementById('modalCoords').textContent = 'Obteniendo señal GPS...\nPor favor espere.';
+  document.getElementById('modalAcc').textContent = '';
+  document.getElementById('gpsModal').classList.add('show');
+  // If already have position, populate immediately
+  if(currentPos) onGpsSuccess(currentPos);
+}
+
+function cancelGps() {
+  document.getElementById('gpsModal').classList.remove('show');
+  captureTarget = null;
+}
+
+function confirmGps() {
+  if(!capturedPos) { alert('Aún no hay señal GPS. Espere un momento.'); return; }
+  document.getElementById('gpsModal').classList.remove('show');
+
+  if(captureTarget.type === 'transect') {
+    transectGps = capturedPos;
+    document.getElementById('tLatStart').textContent = capturedPos.lat.toFixed(7);
+    document.getElementById('tLonStart').textContent = capturedPos.lon.toFixed(7);
+    document.getElementById('tUtmStart').textContent = `${capturedPos.utmE.toFixed(1)} / ${capturedPos.utmN.toFixed(1)} (${capturedPos.zone})`;
+    document.getElementById('btnTGps').textContent = '✅ GPS capturado';
+    document.getElementById('btnTGps').className = 'btn btn-sm';
+    document.getElementById('btnTGps').style.background = 'var(--gps-on)';
+    document.getElementById('btnTGps').style.color = '#fff';
+  } else {
+    const row = captureTarget.row;
+    const selLat = row.querySelector('.gps-lat');
+    const selLon = row.querySelector('.gps-lon');
+    const selUtmE = row.querySelector('.gps-utme');
+    const selUtmN = row.querySelector('.gps-utmn');
+    const selAlt = row.querySelector('.gps-alt');
+    const selAcc = row.querySelector('.gps-acc');
+    const gBtn = row.querySelector('.gps-btn');
+    if(selLat) selLat.value = capturedPos.lat.toFixed(7);
+    if(selLon) selLon.value = capturedPos.lon.toFixed(7);
+    if(selUtmE) selUtmE.value = capturedPos.utmE.toFixed(1);
+    if(selUtmN) selUtmN.value = capturedPos.utmN.toFixed(1);
+    if(selAlt) selAlt.value = capturedPos.alt ? capturedPos.alt.toFixed(1) : '';
+    if(selAcc) selAcc.value = capturedPos.acc.toFixed(1);
+    if(gBtn) {
+      gBtn.textContent = `✅ ±${capturedPos.acc.toFixed(0)}m`;
+      gBtn.className = 'gps-btn done';
+    }
+    // Visual feedback: add green border to coord cells
+    [selLat, selLon, selUtmE, selUtmN].forEach(el => {
+      if(el) el.classList.remove('empty');
+    });
+    updateCounts();
+    scheduleAutoSave();
+    showToast(`📍 GPS capturado · ±${capturedPos.acc.toFixed(1)} m`,'var(--gps-on)');
+  }
+  markDirty();
+}
+
+// ══════════════════════════════════════════════════════════
+// UTM CONVERSION (WGS84 → UTM)
+// ══════════════════════════════════════════════════════════
+function latLonToUtm(lat, lon) {
+  const a = 6378137.0, f = 1/298.257223563;
+  const b = a*(1-f), e2 = 1-(b*b)/(a*a);
+  const k0 = 0.9996;
+  const zoneNum = Math.floor((lon+180)/6)+1;
+  const lon0 = (zoneNum-1)*6-180+3;
+  const latR = lat*Math.PI/180, lonR = lon*Math.PI/180, lon0R = lon0*Math.PI/180;
+  const N = a/Math.sqrt(1-e2*Math.sin(latR)**2);
+  const T = Math.tan(latR)**2;
+  const C = e2/(1-e2)*Math.cos(latR)**2;
+  const A = Math.cos(latR)*(lonR-lon0R);
+  const e4=e2*e2, e6=e4*e2;
+  const M = a*((1-e2/4-3*e4/64-5*e6/256)*latR
+    -(3*e2/8+3*e4/32+45*e6/1024)*Math.sin(2*latR)
+    +(15*e4/256+45*e6/1024)*Math.sin(4*latR)
+    -(35*e6/3072)*Math.sin(6*latR));
+  const E = k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T**2+72*C-58*e2/(1-e2))*A**5/120)+500000;
+  let No = k0*(M+N*Math.tan(latR)*(A**2/2+(5-T+9*C+4*C**2)*A**4/24+(61-58*T+T**2+600*C-330*e2/(1-e2))*A**6/720));
+  if(lat<0) No += 10000000;
+  const hemi = lat>=0?'N':'S';
+  return { E, N: No, zone:`${zoneNum}${hemi}` };
+}
+
+// ══════════════════════════════════════════════════════════
+// ROW BUILDERS
+// ══════════════════════════════════════════════════════════
+function nomOpts(sel='') {
+  return `<option value="">— No NOM —</option>
+    <optgroup label="Pr — Prot. especial">
+      <option value="Pr" ${sel==='Pr'?'selected':''}>E. platyacanthus (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>F. histrix (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>Mammillaria spp. (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>Coryphantha spp. (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>Agave lechuguilla (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>A. salmiana (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>M. geometrizans (Pr)</option>
+      <option value="Pr" ${sel==='Pr'?'selected':''}>Cylindropuntia imbricata (Pr)</option>
+    </optgroup>
+    <optgroup label="A — Amenazada">
+      <option value="A" ${sel==='A'?'selected':''}>S. queretaroensis (A)</option>
+      <option value="A" ${sel==='A'?'selected':''}>Y. filifera (A)</option>
+      <option value="A" ${sel==='A'?'selected':''}>F. splendens (A)</option>
+    </optgroup>
+    <optgroup label="P — Peligro">
+      <option value="P" ${sel==='P'?'selected':''}>Otra (P)</option>
+    </optgroup>`;
+}
+
+function fvOpts(arr, sel=''){
+  return arr.map(v=>`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`).join('');
+}
+
+function coordInput(cls, val='', placeholder=''){
+  const hasVal = val && val !== '';
+  return `<input class="ti ti-coord ${hasVal?'':'empty'} ${cls}" value="${val}" placeholder="${placeholder}" style="width:100px;font-size:.75em" oninput="markDirty();scheduleAutoSave()">`;
+}
+
+function addMat(data=null) {
+  const tb = document.getElementById('bMat');
+  matRC++;
+  const n = tb.children.length+1;
+  const d = data||{};
+  const tr = document.createElement('tr');
+  tr.className='fi'; tr.dataset.rid=matRC;
+  const lat=d.lat||'', lon=d.lon||'', utmE=d.utmE||'', utmN=d.utmN||'', alt=d.alt||'', acc=d.acc||'';
+  const hasgps = lat !== '';
+  tr.innerHTML=`
+    <td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>
+    <td><input class="ti sp-mat" list="dlMat" value="${d.sp||''}" placeholder="Especie" oninput="autoFill(this);markDirty();updateCounts();scheduleAutoSave()" style="min-width:150px"></td>
+    <td><input class="ti cn-mat" value="${d.cn||''}" placeholder="Nombre común" style="min-width:105px"></td>
+    <td><input type="number" class="ti diam" value="${d.diam||1.0}" min="0" step="0.05" style="width:72px" oninput="updateCounts();markDirty();scheduleAutoSave()"></td>
+    <td><input type="number" class="ti alt-mat" value="${d.altv||1.5}" min="0" step="0.1" style="width:62px" oninput="markDirty();scheduleAutoSave()"></td>
+    <td><select class="tsel fv-mat" style="min-width:80px" onchange="markDirty();scheduleAutoSave()">${fvOpts(FV_MAT,d.fv||'Arbustivo')}</select></td>
+    <td><select class="tsel nom-sel" style="min-width:95px" onchange="markNom(this);markDirty();scheduleAutoSave()">${nomOpts(d.nom||'')}</select></td>
+    <td>${coordInput('gps-lat',lat,'Latitud')}</td>
+    <td>${coordInput('gps-lon',lon,'Longitud')}</td>
+    <td>${coordInput('gps-utme',utmE,'UTM E')}</td>
+    <td>${coordInput('gps-utmn',utmN,'UTM N')}</td>
+    <td><input class="ti" style="width:68px;font-size:.75em;font-family:var(--fm)" value="${alt}" placeholder="m.s.n.m." oninput="markDirty()"></td>
+    <td><input class="ti gps-acc" style="width:58px;font-size:.75em;font-family:var(--fm)" value="${acc}" placeholder="m" readonly></td>
+    <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'mat')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
+    <td><input class="ti obs-mat" value="${d.obs||''}" placeholder="Notas" style="min-width:120px" oninput="scheduleAutoSave()"></td>
+    <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delMat(this)">✕</button></td>`;
+  tb.appendChild(tr);
+  document.getElementById('eMat').style.display='none';
+  if(d.nom) markNom(tr.querySelector('.nom-sel'));
+  updateCounts(); renumMat();
+  if(!data){ tr.querySelector('.sp-mat').focus(); markDirty(); scheduleAutoSave(); }
+}
+
+function addPas(data=null) {
+  const tb = document.getElementById('bPas');
+  pasQC++;
+  const q = data ? data.q : pasQC;
+  const pts = data ? [data.pto] : [0,25,50];
+  pts.forEach(pto => {
+    const d = data||{};
+    const lat=d.lat||'', lon=d.lon||'', utmE=d.utmE||'', utmN=d.utmN||'';
+    const hasgps = lat !== '';
+    const tr = document.createElement('tr');
+    tr.className='fi';
+    tr.innerHTML=`
+      <td style="font-family:var(--fm);font-size:.78em;text-align:center;font-weight:600;color:var(--sage)">${q}</td>
+      <td style="font-family:var(--fm);font-size:.8em;text-align:center">${pto} m</td>
+      <td><input class="ti sp-pas" list="dlPas" value="${d.sp||''}" placeholder="Especie" oninput="markDirty();updateCounts();scheduleAutoSave()" style="min-width:160px"></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <input type="number" class="ti cob" value="${d.cob!==undefined?d.cob:5}" min="0" max="100" step="1" style="width:60px" oninput="checkCob(this);markDirty();updateCounts();scheduleAutoSave()">
+        <span style="color:#aaa;font-size:.82em">%</span></div></td>
+      <td><select class="tsel fv-pas" style="min-width:95px" onchange="markDirty();scheduleAutoSave()">${fvOpts(FV_PAS,d.fv||'Gramínea perenne')}</select></td>
+      <td>${coordInput('gps-lat',lat,'Latitud')}</td>
+      <td>${coordInput('gps-lon',lon,'Longitud')}</td>
+      <td>${coordInput('gps-utme',utmE,'UTM E')}</td>
+      <td>${coordInput('gps-utmn',utmN,'UTM N')}</td>
+      <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'pas')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
+      <td><input class="ti obs-pas" value="${d.obs||''}" placeholder="Notas" style="min-width:105px" oninput="scheduleAutoSave()"></td>
+      <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delPas(this)">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('ePas').style.display='none';
+  if(!data){ markDirty(); scheduleAutoSave(); }
+  updateCounts();
+}
+
+function delMat(btn){ btn.closest('tr').remove(); const tb=document.getElementById('bMat'); if(!tb.children.length) document.getElementById('eMat').style.display=''; renumMat(); updateCounts(); markDirty(); scheduleAutoSave(); }
+function delPas(btn){ btn.closest('tr').remove(); const tb=document.getElementById('bPas'); if(!tb.children.length) document.getElementById('ePas').style.display=''; updateCounts(); markDirty(); scheduleAutoSave(); }
+
+function renumMat(){
+  document.querySelectorAll('#bMat tr').forEach((tr,i)=>{
+    const c=tr.cells[0]; if(c) c.textContent=String(i+1).padStart(2,'0');
+  });
+}
+
+function autoFill(inp){
+  const tr=inp.closest('tr'), k=inp.value.trim().toLowerCase();
+  const cn=tr.querySelector('.cn-mat'), nom=tr.querySelector('.nom-sel');
+  if(CN[k]&&cn&&!cn.value) cn.value=CN[k];
+  if(NOM_DB[k]&&nom){ for(let o of nom.options){if(o.value===NOM_DB[k]){nom.value=NOM_DB[k];break;}} markNom(nom); }
+}
+
+function markNom(sel){ const tr=sel.closest('tr'); if(sel.value) tr.classList.add('nom-row'); else tr.classList.remove('nom-row'); }
+
+function checkCob(inp){
+  const tr=inp.closest('tr'), c=tr.cells[0].textContent.trim();
+  let t=0; document.querySelectorAll('#bPas tr').forEach(r=>{ if(r.cells[0].textContent.trim()===c) t+=parseFloat(r.querySelector('.cob')?.value||0); });
+  inp.classList.toggle('warn',t>100); inp.title=t>100?`⚠ Cuad. ${c}: ${t}%>100%`:'';
+}
+
+// ══════════════════════════════════════════════════════════
+// COUNTS
+// ══════════════════════════════════════════════════════════
+function updateCounts(){
+  const mR=document.querySelectorAll('#bMat tr'), pR=document.querySelectorAll('#bPas tr');
+  const spSet=new Set(); let nomC=0, gpsC=0, areaTot=0;
+  mR.forEach(r=>{
+    const sp=r.querySelector('.sp-mat')?.value.trim(); if(sp) spSet.add(sp.toLowerCase());
+    if(r.querySelector('.nom-sel')?.value) nomC++;
+    const lat=r.querySelector('.gps-lat')?.value; if(lat) gpsC++;
+    const d=parseFloat(r.querySelector('.diam')?.value||0); areaTot+=Math.PI*Math.pow(d/2,2);
+  });
+  pR.forEach(r=>{
+    const sp=r.querySelector('.sp-pas')?.value.trim();
+    if(sp&&sp!=='Suelo desnudo'&&sp!=='Roca / Grava') spSet.add(sp.toLowerCase());
+    const lat=r.querySelector('.gps-lat')?.value; if(lat) gpsC++;
+  });
+  if(transectGps.lat) gpsC++;
+  document.getElementById('cntMat').textContent=mR.length;
+  document.getElementById('cntPas').textContent=Math.ceil(pR.length/3)||0;
+  document.getElementById('cntSp').textContent=spSet.size;
+  document.getElementById('cntNom').textContent=nomC;
+  document.getElementById('cntGps').textContent=gpsC;
+  document.getElementById('matCnt').textContent=mR.length+' ind.';
+  document.getElementById('pasCnt').textContent=Math.ceil(pR.length/3)+' cuad.';
+}
+
+// ══════════════════════════════════════════════════════════
+// ANALYSIS (full calculations)
+// ══════════════════════════════════════════════════════════
+function analyze(){
+  const tId=document.getElementById('tid').value, AREA_HA=0.01;
+  let matMap={}, totalN_mat=0, totalArea_mat=0;
+  document.querySelectorAll('#bMat tr').forEach(r=>{
+    const sp=r.querySelector('.sp-mat').value.trim(); if(!sp) return;
+    const cn=r.querySelector('.cn-mat').value.trim();
+    const d=parseFloat(r.querySelector('.diam').value)||0;
+    const nom=r.querySelector('.nom-sel').value;
+    const fv=r.querySelector('.fv-mat').value;
+    const lat=r.querySelector('.gps-lat')?.value||'';
+    const lon=r.querySelector('.gps-lon')?.value||'';
+    const utmE=r.querySelector('.gps-utme')?.value||'';
+    const utmN=r.querySelector('.gps-utmn')?.value||'';
+    const area=Math.PI*Math.pow(d/2,2);
+    if(!matMap[sp]) matMap[sp]={sp,cn,n:0,area:0,nom,fv,lat,lon,utmE,utmN};
+    matMap[sp].n++; matMap[sp].area+=area;
+    totalN_mat++; totalArea_mat+=area;
+  });
+  let pasMap={}, totalCob=0, totalN_pas=0;
+  document.querySelectorAll('#bPas tr').forEach(r=>{
+    const sp=r.querySelector('.sp-pas').value.trim(); if(!sp) return;
+    const cob=parseFloat(r.querySelector('.cob').value)||0;
+    const fv=r.querySelector('.fv-pas').value;
+    if(!pasMap[sp]) pasMap[sp]={sp,n:0,cob:0,fv};
+    pasMap[sp].n++; pasMap[sp].cob+=cob; totalCob+=cob; totalN_pas++;
+  });
+  const S_mat=Object.keys(matMap).length, S_pas=Object.keys(pasMap).length;
+  const S_all=new Set([...Object.keys(matMap),...Object.keys(pasMap)]).size;
+  if(S_all===0) return alert('Captura al menos un individuo.');
+
+  const F_rel_each=S_mat>0?100/S_mat:0;
+  let matRows=[];
+  Object.values(matMap).forEach(s=>{
+    const D_abs=s.n/AREA_HA, D_rel=totalN_mat>0?(s.n/totalN_mat)*100:0;
+    const Dom_abs=s.area/AREA_HA, Dom_rel=totalArea_mat>0?(s.area/totalArea_mat)*100:0;
+    const F_rel=F_rel_each, IVI=D_rel+Dom_rel+F_rel;
+    matRows.push({sp:s.sp,cn:s.cn,n:s.n,D_abs,D_rel,Dom_abs,Dom_rel,F_abs:1,F_rel,IVI,nom:s.nom,fv:s.fv,area:s.area,lat:s.lat,lon:s.lon,utmE:s.utmE,utmN:s.utmN});
+  });
+  matRows.sort((a,b)=>b.IVI-a.IVI);
+  let pasRows=[];
+  Object.values(pasMap).forEach(s=>{
+    const D_rel=totalN_pas>0?(s.n/totalN_pas)*100:0;
+    const Dom_rel=totalCob>0?(s.cob/totalCob)*100:0;
+    pasRows.push({sp:s.sp,n:s.n,cob:s.cob,D_rel,Dom_rel,IVI:D_rel+Dom_rel,fv:s.fv});
+  });
+  pasRows.sort((a,b)=>b.IVI-a.IVI);
+
+  let H=0, f1=0, f2=0;
+  matRows.forEach(s=>{ const pi=s.n/totalN_mat; if(pi>0) H-=pi*Math.log(pi); if(s.n===1)f1++; if(s.n===2)f2++; });
+  const J=S_mat>1?H/Math.log(S_mat):0;
+  const D_Mg=totalN_mat>1?(S_mat-1)/Math.log(totalN_mat):0;
+  const Chao1=f2>0?S_mat+(f1*f1)/(2*f2):S_mat+f1*(f1-1)/2;
+  let sumN2=0; matRows.forEach(s=>sumN2+=s.n*(s.n-1));
+  const N=totalN_mat;
+  const Simp=N>1?1-(sumN2/(N*(N-1))):0;
+  const BP=matRows.length>0?matRows[0].n/totalN_mat:0;
+
+  currentResults={
+    tid:tId, bio:document.getElementById('bio').value,
+    fecha:document.getElementById('fecha').value,
+    hora:document.getElementById('hora').value,
+    transectGps:{...transectGps},
+    matRows, pasRows,
+    indices:{S_mat,S_pas,S_all,H_prime:H,J_prime:J,D_Mg,Chao1,Simpson:Simp,BP,f1,f2,totalN_mat,totalCob,AREA_HA,S_esp:S_mat},
+    matMap, pasMap, totalN_mat, totalArea_mat, totalCob
+  };
+
+  savedTransects[tId]={
+    meta:{tid:tId,bio:document.getElementById('bio').value,fecha:document.getElementById('fecha').value,hora:document.getElementById('hora').value,cond:document.getElementById('cond').value,transectGps:{...transectGps}},
+    mat:gatherMat(), pas:gatherPas(), results:currentResults
+  };
+  persistToStorage();
+  showToast(`📊 T${tId} analizado y guardado · S=${S_all} spp. H'=${H.toFixed(3)}`,'var(--sky)');
+  renderResults();
+  goTab('res',document.querySelectorAll('.tab')[1]);
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER RESULTS
+// ══════════════════════════════════════════════════════════
+function renderResults(){
+  if(!currentResults) return;
+  const {matRows,pasRows,indices,tid}=currentResults;
+  document.getElementById('resEmpty').style.display='none';
+  document.getElementById('resContent').style.display='block';
+
+  const maxM=matRows[0]?.IVI||1;
+  document.getElementById('iviMatB').innerHTML=matRows.map(r=>`
+    <tr class="${r.nom?'nom-row':''}">
+      <td><em style="font-size:.87em">${r.sp}</em>${r.nom?`<span class="chip chip-y" style="margin-left:3px">${r.nom}</span>`:''}</td>
+      <td style="text-align:center;font-family:var(--fm)">${r.n}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.D_abs.toFixed(1)}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.D_rel.toFixed(2)}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.Dom_abs.toFixed(2)}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.Dom_rel.toFixed(2)}</td>
+      <td style="text-align:center;font-family:var(--fm)">${r.F_abs}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.F_rel.toFixed(2)}</td>
+      <td><span style="font-family:var(--fm);font-weight:600;color:var(--sky)">${r.IVI.toFixed(2)}</span>
+        <div class="ivi-bar" style="width:${(r.IVI/maxM*100).toFixed(0)}%;background:var(--sky)"></div></td>
+      <td><span class="chip ${r.nom==='Pr'?'chip-y':'chip-r'}">${r.nom||'—'}</span></td>
+    </tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:#bbb;padding:18px">Sin datos</td></tr>';
+
+  const maxP=pasRows[0]?.IVI||1;
+  document.getElementById('iviPasB').innerHTML=pasRows.map(r=>`
+    <tr>
+      <td><em style="font-size:.87em">${r.sp}</em></td>
+      <td style="text-align:center;font-family:var(--fm)">${r.n}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.D_rel.toFixed(2)}</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.cob.toFixed(1)}%</td>
+      <td style="text-align:right;font-family:var(--fm)">${r.Dom_rel.toFixed(2)}</td>
+      <td><span style="font-family:var(--fm);font-weight:600;color:var(--clay)">${r.IVI.toFixed(2)}</span>
+        <div class="ivi-bar" style="width:${(r.IVI/maxP*100).toFixed(0)}%;background:var(--clay)"></div></td>
+    </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:#bbb;padding:18px">Sin datos</td></tr>';
+
+  const i=indices;
+  const iH=i.H_prime<1?'Baja diversidad':i.H_prime<2?'Diversidad media':'Alta diversidad';
+  const iJ=i.J_prime<0.4?'Comunidad desigual':i.J_prime<0.7?'Equidad media':'Alta equidad';
+  document.getElementById('idxGrid').innerHTML=`
+    <div class="idx-card"><div class="idx-name">Riqueza S</div><div class="idx-formula">S = n° spp.</div><div class="idx-val">${i.S_esp}</div><div class="idx-interp">Mat:${i.S_mat} · Pas:${i.S_pas} · Tot:${i.S_all}</div></div>
+    <div class="idx-card"><div class="idx-name">Shannon H'</div><div class="idx-formula">H'=−Σpᵢln(pᵢ)</div><div class="idx-val">${i.H_prime.toFixed(4)}</div><div class="idx-interp">${iH}</div></div>
+    <div class="idx-card"><div class="idx-name">Pielou J'</div><div class="idx-formula">J'=H'/ln(S)</div><div class="idx-val">${i.J_prime.toFixed(4)}</div><div class="idx-interp">${iJ}</div></div>
+    <div class="idx-card"><div class="idx-name">Margalef D<sub>Mg</sub></div><div class="idx-formula">D=(S−1)/ln(N)</div><div class="idx-val">${i.D_Mg.toFixed(4)}</div><div class="idx-interp">N=${i.totalN_mat}</div></div>
+    <div class="idx-card"><div class="idx-name">Chao1</div><div class="idx-formula">S+f₁²/2f₂</div><div class="idx-val">${i.Chao1.toFixed(1)}</div><div class="idx-interp">f₁=${i.f1} · f₂=${i.f2}</div></div>
+    <div class="idx-card"><div class="idx-name">Simpson 1−D</div><div class="idx-formula">1−Σn(n−1)/N(N−1)</div><div class="idx-val">${i.Simpson.toFixed(4)}</div><div class="idx-interp">${i.Simpson>0.7?'Alta diversidad':'Dominancia moderada'}</div></div>
+    <div class="idx-card"><div class="idx-name">Berger-Parker</div><div class="idx-formula">N_max/N</div><div class="idx-val">${i.BP.toFixed(4)}</div><div class="idx-interp">${matRows[0]?.sp||'—'}</div></div>
+    <div class="idx-card"><div class="idx-name">N total (mat.)</div><div class="idx-formula">Censo 100 m²</div><div class="idx-val">${i.totalN_mat}</div><div class="idx-interp">Área: 0.01 ha</div></div>
+    <div class="idx-card"><div class="idx-name">Cob. pastizal</div><div class="idx-formula">Σ%cob cuad.</div><div class="idx-val">${i.totalCob.toFixed(1)}%</div><div class="idx-interp">${i.S_pas} spp. herbáceas</div></div>`;
+
+  const top3=matRows.slice(0,3).map(r=>`<em>${r.sp}</em> (IVI=${r.IVI.toFixed(1)})`).join(', ');
+  document.getElementById('interpText').innerHTML=`
+    <p><b>Transecto ${currentResults.tid}</b> · ${currentResults.fecha} · ${currentResults.bio}
+    ${currentResults.transectGps?.lat?` · 📍 ${(+currentResults.transectGps.lat).toFixed(5)}, ${(+currentResults.transectGps.lon).toFixed(5)}`:''}</p><br>
+    <p><b>Matorral:</b> ${i.totalN_mat} individuos / ${i.S_mat} spp. en 100 m². Dominantes: ${top3||'N/D'}.
+    H'=${i.H_prime.toFixed(3)} (${iH.toLowerCase()}) · J'=${i.J_prime.toFixed(3)} (${iJ.toLowerCase()}) · Chao1=${i.Chao1.toFixed(0)} spp. esperadas · D_Mg=${i.D_Mg.toFixed(3)}.</p><br>
+    <p><b>Pastizal:</b> Cob. total ${i.totalCob.toFixed(1)}% en ${i.S_pas} spp.${pasRows[0]?` · Dom: <em>${pasRows[0].sp}</em> (IVI=${pasRows[0].IVI.toFixed(1)})`:''}</p>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// MAP  — topographic style, UTM grid, scale bar, tooltips
+// ══════════════════════════════════════════════════════════
+function renderMap(){
+  // ── Collect points ──────────────────────────────────────
+  const pts=[];
+  const addPt=(type,tid,n,sp,lat,lon,utmE,utmN,alt,acc,time)=>{
+    if(!lat||!lon||isNaN(+lat)||isNaN(+lon)) return;
+    pts.push({type,tid,n,sp,lat:+lat,lon:+lon,
+      utmE:utmE?+utmE:null,utmN:utmN?+utmN:null,
+      alt:alt||'',acc:acc||'',time:time||''});
+  };
+  // current transect (unsaved)
+  if(transectGps.lat) addPt('T.inicio',document.getElementById('tid').value,'—','Inicio transecto',transectGps.lat,transectGps.lon,transectGps.utmE,transectGps.utmN,transectGps.alt,transectGps.acc,'');
+  document.querySelectorAll('#bMat tr').forEach((r,i)=>{
+    addPt('Matorral',document.getElementById('tid').value,i+1,r.querySelector('.sp-mat')?.value||'',r.querySelector('.gps-lat')?.value,r.querySelector('.gps-lon')?.value,r.querySelector('.gps-utme')?.value,r.querySelector('.gps-utmn')?.value,'',r.querySelector('.gps-acc')?.value,'');
+  });
+  document.querySelectorAll('#bPas tr').forEach((r,i)=>{
+    addPt('Pastizal',document.getElementById('tid').value,i+1,r.querySelector('.sp-pas')?.value||'',r.querySelector('.gps-lat')?.value,r.querySelector('.gps-lon')?.value,r.querySelector('.gps-utme')?.value,r.querySelector('.gps-utmn')?.value,'','','');
+  });
+  // saved transects
+  Object.values(savedTransects).forEach(t=>{
+    if(t.meta?.transectGps?.lat) addPt('T.inicio',t.meta.tid,'—','Inicio transecto',t.meta.transectGps.lat,t.meta.transectGps.lon,t.meta.transectGps.utmE,t.meta.transectGps.utmN,'',t.meta.transectGps.acc,'');
+    (t.mat||[]).forEach(r=>addPt('Matorral',r.tid,r.no,r.sp,r.lat,r.lon,r.utmE,r.utmN,'',r.acc,''));
+    (t.pas||[]).forEach(r=>addPt('Pastizal',r.tid,r.q,r.sp,r.lat,r.lon,r.utmE,r.utmN,'','',''));
+  });
+
+  // ── GPS table ────────────────────────────────────────────
+  document.getElementById('gpsAllBody').innerHTML=pts.map(p=>`
+    <tr>
+      <td><span class="chip ${p.type==='Matorral'?'chip-g':p.type==='Pastizal'?'chip-y':'chip-b'}">${p.type}</span></td>
+      <td style="font-family:var(--fm);text-align:center">${p.tid}</td>
+      <td style="font-family:var(--fm);text-align:center">${p.n}</td>
+      <td style="font-size:.85em"><em>${p.sp}</em></td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.lat.toFixed(6)}</td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.lon.toFixed(6)}</td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.utmE?p.utmE.toFixed(1):'—'}</td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.utmN?p.utmN.toFixed(1):'—'}</td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.alt||'—'}</td>
+      <td style="font-family:var(--fm);font-size:.82em">${p.acc?'±'+p.acc+'m':'—'}</td>
+      <td style="font-family:var(--fm);font-size:.78em">${p.time||'—'}</td>
+    </tr>`).join('')||'<tr><td colspan="11" style="text-align:center;color:#bbb;padding:20px">Sin puntos GPS</td></tr>';
+
+  // ── Legend ───────────────────────────────────────────────
+  document.getElementById('mapLegend').innerHTML=
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#2d5a27"/></svg> Matorral (${pts.filter(p=>p.type==='Matorral').length})</span>`+
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#c8a84b"/></svg> Pastizal (${pts.filter(p=>p.type==='Pastizal').length})</span>`+
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="#2c6e8a"/></svg> Inicio transecto (${pts.filter(p=>p.type==='T.inicio').length})</span>`+
+    `<span style="font-family:var(--fm);font-size:.75em;color:#888"> · Total: ${pts.length} puntos GPS</span>`;
+
+  // ── No points case: show placeholder with real coordinates ──
+  if(pts.length===0){
+    document.getElementById('mapWrap').innerHTML=`
+      <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8e4d8 0%,#ddd8c8 100%);gap:10px">
+        <svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="20" r="10" fill="none" stroke="#b0a080" stroke-width="2.5"/><line x1="24" y1="1" x2="24" y2="8" stroke="#b0a080" stroke-width="2"/><line x1="24" y1="32" x2="24" y2="39" stroke="#b0a080" stroke-width="2"/><line x1="1" y1="20" x2="8" y2="20" stroke="#b0a080" stroke-width="2"/><line x1="40" y1="20" x2="47" y2="20" stroke="#b0a080" stroke-width="2"/><circle cx="24" cy="20" r="3" fill="#b0a080"/></svg>
+        <p style="font-family:'IBM Plex Mono',monospace;font-size:.78em;color:#a09070;text-align:center">Sin puntos GPS capturados aún<br>Captura coordenadas en campo para ver el mapa</p>
+      </div>`;
+    return;
+  }
+
+  // ── Build the SVG map ────────────────────────────────────
+  const W=740, H=420, PAD={t:36,r:20,b:50,l:60};
+  const lats=pts.map(p=>p.lat), lons=pts.map(p=>p.lon);
+  let minLat=Math.min(...lats), maxLat=Math.max(...lats);
+  let minLon=Math.min(...lons), maxLon=Math.max(...lons);
+
+  // Minimum extent: ~200m around single point so it never looks blank
+  const MIN_DEG_LAT=0.002, MIN_DEG_LON=0.003;
+  if(maxLat-minLat<MIN_DEG_LAT){const c=(maxLat+minLat)/2;minLat=c-MIN_DEG_LAT/2;maxLat=c+MIN_DEG_LAT/2;}
+  if(maxLon-minLon<MIN_DEG_LON){const c=(maxLon+minLon)/2;minLon=c-MIN_DEG_LON/2;maxLon=c+MIN_DEG_LON/2;}
+
+  // Add margin (15%)
+  const mLat=(maxLat-minLat)*0.18, mLon=(maxLon-minLon)*0.18;
+  const vMinLat=minLat-mLat, vMaxLat=maxLat+mLat;
+  const vMinLon=minLon-mLon, vMaxLon=maxLon+mLon;
+
+  const mapW=W-PAD.l-PAD.r, mapH=H-PAD.t-PAD.b;
+  const scX=lon=>(lon-vMinLon)/(vMaxLon-vMinLon)*mapW;
+  const scY=lat=>(1-(lat-vMinLat)/(vMaxLat-vMinLat))*mapH;
+
+  // UTM grid lines (every ~100m approx in degrees)
+  const latDeg=vMaxLat-vMinLat, lonDeg=vMaxLon-vMinLon;
+  const gridStepLat=latDeg<0.01?0.001:latDeg<0.05?0.005:0.01;
+  const gridStepLon=lonDeg<0.015?0.002:lonDeg<0.07?0.007:0.01;
+  const gridLines=[];
+  // horizontal
+  for(let g=Math.ceil(vMinLat/gridStepLat)*gridStepLat;g<=vMaxLat;g+=gridStepLat){
+    const y=scY(g).toFixed(1);
+    gridLines.push(`<line x1="0" y1="${y}" x2="${mapW}" y2="${y}" stroke="rgba(120,110,80,0.2)" stroke-width="0.8" stroke-dasharray="3,3"/>`);
+    gridLines.push(`<text x="-4" y="${+y+3}" font-size="8" fill="#a09070" text-anchor="end" font-family="monospace">${g.toFixed(4)}°</text>`);
+  }
+  // vertical
+  for(let g=Math.ceil(vMinLon/gridStepLon)*gridStepLon;g<=vMaxLon;g+=gridStepLon){
+    const x=scX(g).toFixed(1);
+    gridLines.push(`<line x1="${x}" y1="0" x2="${x}" y2="${mapH}" stroke="rgba(120,110,80,0.2)" stroke-width="0.8" stroke-dasharray="3,3"/>`);
+    gridLines.push(`<text x="${x}" y="${mapH+12}" font-size="8" fill="#a09070" text-anchor="middle" font-family="monospace">${g.toFixed(4)}°</text>`);
+  }
+
+  // Scale bar (calculate ~100m in degrees lon)
+  const metersPerDegLon=111320*Math.cos(((vMinLat+vMaxLat)/2)*Math.PI/180);
+  const scaleM=Math.pow(10,Math.floor(Math.log10(lonDeg*metersPerDegLon*0.25)));
+  const scaleActual=scaleM>=1000?scaleM:scaleM>=100?scaleM:50;
+  const scaleWidthPx=scaleActual/metersPerDegLon*mapW/(vMaxLon-vMinLon);
+  const scaleLabel=scaleActual>=1000?`${scaleActual/1000} km`:`${scaleActual} m`;
+  const sbX=10, sbY=mapH-10;
+
+  // Points SVG
+  const COLORS={Matorral:'#2d5a27',Pastizal:'#c8a84b','T.inicio':'#2c6e8a'};
+  const STROKE={Matorral:'#1a3a18',Pastizal:'#8a6200','T.inicio':'#1a4060'};
+  const svgPts=pts.map((p,idx)=>{
+    const x=+scX(p.lon).toFixed(1), y=+scY(p.lat).toFixed(1);
+    const c=COLORS[p.type]||'#888', sc=STROKE[p.type]||'#444';
+    const tooltip=`${p.type} T${p.tid} #${p.n}\n${p.sp}\nLat: ${p.lat.toFixed(6)}\nLon: ${p.lon.toFixed(6)}${p.acc?'\nPrec: ±'+p.acc+'m':''}`;
+    if(p.type==='T.inicio'){
+      // Triangle for transect start
+      return `<g><polygon points="${x},${y-9} ${x-7},${y+5} ${x+7},${y+5}" fill="${c}" stroke="${sc}" stroke-width="1.5" opacity="0.92"><title>${tooltip}</title></polygon>
+        <text x="${x+10}" y="${y+3}" font-size="8.5" fill="${c}" font-family="monospace" font-weight="600">T${p.tid}</text></g>`;
+    } else {
+      // Circle with inner dot
+      const spLabel=p.sp?p.sp.split(' ')[0].substring(0,7):'';
+      return `<g>
+        <circle cx="${x}" cy="${y}" r="7" fill="${c}" stroke="${sc}" stroke-width="1.5" opacity="0.88"><title>${tooltip}</title></circle>
+        <circle cx="${x}" cy="${y}" r="2.5" fill="rgba(255,255,255,0.7)"/>
+        <text x="${x+9}" y="${y+3}" font-size="7.5" fill="${c}" font-family="monospace">${spLabel}</text>
+      </g>`;
+    }
+  }).join('');
+
+  // Accuracy circles for points with acc
+  const accCircles=pts.filter(p=>p.acc&&+p.acc<50).map(p=>{
+    const x=+scX(p.lon).toFixed(1), y=+scY(p.lat).toFixed(1);
+    const accDeg=+p.acc/(111320*Math.cos(p.lat*Math.PI/180));
+    const accPx=accDeg/(vMaxLon-vMinLon)*mapW;
+    return `<circle cx="${x}" cy="${y}" r="${Math.min(accPx,20).toFixed(1)}" fill="none" stroke="${COLORS[p.type]||'#888'}" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>`;
+  }).join('');
+
+  // North arrow
+  const northArrow=`<g transform="translate(${mapW-24},14)">
+    <polygon points="0,-12 -5,4 0,0 5,4" fill="#555"/>
+    <text x="0" y="16" font-size="9" fill="#555" text-anchor="middle" font-family="monospace" font-weight="600">N</text>
+  </g>`;
+
+  // Center crosshair (center of all points)
+  const cLat=(minLat+maxLat)/2, cLon=(minLon+maxLon)/2;
+  const cx=+scX(cLon).toFixed(1), cy=+scY(cLat).toFixed(1);
+
+  document.getElementById('mapWrap').innerHTML=`
+<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="topo" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="#ede9df"/>
+      <path d="M0,10 Q5,8 10,10 Q15,12 20,10" fill="none" stroke="rgba(180,168,130,0.35)" stroke-width="0.7"/>
+    </pattern>
+    <pattern id="contour" width="60" height="60" patternUnits="userSpaceOnUse">
+      <ellipse cx="30" cy="30" rx="28" ry="18" fill="none" stroke="rgba(160,148,100,0.18)" stroke-width="0.8"/>
+      <ellipse cx="30" cy="30" rx="20" ry="12" fill="none" stroke="rgba(160,148,100,0.15)" stroke-width="0.6"/>
+      <ellipse cx="30" cy="30" rx="12" ry="7" fill="none" stroke="rgba(160,148,100,0.12)" stroke-width="0.5"/>
+    </pattern>
+    <clipPath id="mapClip"><rect x="0" y="0" width="${mapW}" height="${mapH}"/></clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="${W}" height="${H}" fill="#f5f0e6"/>
+
+  <!-- Title bar -->
+  <rect x="0" y="0" width="${W}" height="${PAD.t}" fill="#2d3a2d"/>
+  <text x="${PAD.l+mapW/2}" y="22" text-anchor="middle" font-size="11" fill="#c8c080" font-family="monospace" font-weight="600" letter-spacing="1">📍 MAPA GPS — CYCNA LOS PELONES · Ojocaliente, Zac.</text>
+
+  <!-- Map area group -->
+  <g transform="translate(${PAD.l},${PAD.t})">
+    <!-- Topo background -->
+    <rect width="${mapW}" height="${mapH}" fill="url(#topo)" clip-path="url(#mapClip)"/>
+    <rect width="${mapW}" height="${mapH}" fill="url(#contour)" clip-path="url(#mapClip)"/>
+
+    <!-- Terrain shading (subtle gradient) -->
+    <defs>
+      <radialGradient id="terrain" cx="40%" cy="35%" r="65%">
+        <stop offset="0%" stop-color="rgba(255,255,240,0.35)"/>
+        <stop offset="100%" stop-color="rgba(180,165,130,0.15)"/>
+      </radialGradient>
+    </defs>
+    <rect width="${mapW}" height="${mapH}" fill="url(#terrain)" clip-path="url(#mapClip)"/>
+
+    <!-- Border -->
+    <rect width="${mapW}" height="${mapH}" fill="none" stroke="#9a9070" stroke-width="1.5"/>
+
+    <!-- Grid lines -->
+    ${gridLines.join('')}
+
+    <!-- Accuracy rings -->
+    <g clip-path="url(#mapClip)">${accCircles}</g>
+
+    <!-- Points -->
+    <g clip-path="url(#mapClip)">${svgPts}</g>
+
+    <!-- North arrow -->
+    ${northArrow}
+
+    <!-- Scale bar -->
+    <g transform="translate(${sbX},${sbY})">
+      <rect x="0" y="-6" width="${scaleWidthPx.toFixed(0)}" height="6" fill="#555" rx="1"/>
+      <rect x="${(scaleWidthPx/2).toFixed(0)}" y="-6" width="${(scaleWidthPx/2).toFixed(0)}" height="6" fill="#fff" rx="0" stroke="#555" stroke-width="0.5"/>
+      <text x="0" y="8" font-size="8" fill="#555" font-family="monospace">0</text>
+      <text x="${scaleWidthPx.toFixed(0)}" y="8" font-size="8" fill="#555" font-family="monospace" text-anchor="end">${scaleLabel}</text>
+    </g>
+
+    <!-- Coordinate labels bottom -->
+    <text x="${mapW/2}" y="${mapH+28}" text-anchor="middle" font-size="8.5" fill="#888" font-family="monospace">
+      Centro: ${cLat.toFixed(5)}°N, ${cLon.toFixed(5)}°W · WGS84
+    </text>
+  </g>
+</svg>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// JACCARD
+// ══════════════════════════════════════════════════════════
+function renderJaccard(){
+  const keys=Object.keys(savedTransects).sort((a,b)=>+a-+b);
+  if(keys.length<2){document.getElementById('jacEmpty').style.display='';document.getElementById('jacContent').style.display='none';return;}
+  document.getElementById('jacEmpty').style.display='none';document.getElementById('jacContent').style.display='block';
+  const sets={};
+  keys.forEach(k=>{const t=savedTransects[k],sp=new Set();(t.mat||[]).forEach(r=>{if(r.sp)sp.add(r.sp.toLowerCase())});(t.pas||[]).forEach(r=>{if(r.sp&&r.sp!=='Suelo desnudo'&&r.sp!=='Roca / Grava')sp.add(r.sp.toLowerCase())});sets[k]=sp;});
+  document.getElementById('jacHead').innerHTML='<th>T \\ T</th>'+keys.map(k=>`<th>T${k}</th>`).join('');
+  const bd=document.getElementById('jacBody'); bd.innerHTML='';
+  let notes=[];
+  keys.forEach((ki,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-family:var(--fm);font-weight:600">T${ki}</td>`;
+    keys.forEach((kj,j)=>{
+      if(i===j){tr.innerHTML+=`<td style="text-align:center;font-family:var(--fm);background:var(--mist)">1.000</td>`;}
+      else{
+        const A=sets[ki],B=sets[kj],inter=new Set([...A].filter(x=>B.has(x))),union=new Set([...A,...B]);
+        const J=union.size>0?inter.size/union.size:0;
+        const col=J>0.7?'var(--sage-lt)':J>0.5?'var(--sky-lt)':J>0.3?'var(--straw-lt)':'var(--red-lt)';
+        tr.innerHTML+=`<td style="text-align:center;font-family:var(--fm);background:${col}">${J.toFixed(3)}</td>`;
+        if(j>i) notes.push(`T${ki}↔T${kj}: J=${J.toFixed(3)} · ${inter.size} spp. compartidas / ${union.size} total`);
+      }
+    });
+    bd.appendChild(tr);
+  });
+  document.getElementById('jacNotes').innerHTML='<b>Pares:</b><br>'+notes.join('<br>');
+}
+
+// ══════════════════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════════════════
+function renderHist(){
+  const keys=Object.keys(savedTransects).sort((a,b)=>+a-+b);
+  const cont=document.getElementById('histList');
+  if(!keys.length){cont.innerHTML='<div class="empty"><div class="empty-i">🗂</div><div class="empty-t">Sin transectos guardados</div></div>';document.getElementById('summCard').style.display='none';return;}
+  cont.innerHTML=keys.map(k=>{
+    const t=savedTransects[k],r=t.results,nMat=t.mat?.length||0,nSp=r?.indices?.S_all||'—',H=r?.indices?.H_prime?.toFixed(3)||'—';
+    const hasGps=t.meta?.transectGps?.lat?'📍':'';
+    return`<div class="t-row"><div><b style="font-family:var(--fc);font-size:1.05em">${hasGps} Transecto ${k}</b><span style="margin-left:7px;font-size:.78em;color:#888">${t.meta?.fecha||''} · ${nMat} ind. · S=${nSp} · H'=${H}</span></div>
+    <div style="display:flex;gap:5px"><button class="btn btn-g btn-sm" onclick="loadTransect('${k}')">Cargar</button><button class="btn btn-b btn-sm" onclick="loadTransectResults('${k}')">Análisis</button><button class="btn btn-r btn-sm" onclick="deleteTransect('${k}')">✕</button></div></div>`;
+  }).join('');
+  document.getElementById('summCard').style.display='';
+  document.getElementById('summBody').innerHTML=keys.map(k=>{
+    const t=savedTransects[k],r=t.results,i=r?.indices,top=r?.matRows?.[0];
+    const g=t.meta?.transectGps;
+    return`<tr><td style="font-family:var(--fm);font-weight:600">${k}</td><td style="text-align:center">${t.mat?.length||0}</td><td style="text-align:center">${i?.S_all||'—'}</td>
+    <td style="text-align:right;font-family:var(--fm)">${i?.H_prime?.toFixed(4)||'—'}</td><td style="text-align:right;font-family:var(--fm)">${i?.J_prime?.toFixed(4)||'—'}</td>
+    <td style="text-align:right;font-family:var(--fm)">${i?.D_Mg?.toFixed(4)||'—'}</td><td style="text-align:right;font-family:var(--fm)">${i?.Chao1?.toFixed(1)||'—'}</td>
+    <td style="font-size:.82em"><em>${top?.sp||'—'}</em>${top?` (${top.IVI.toFixed(1)})`:''}  </td><td style="text-align:center">${t.mat?.filter(r=>r.nom).length||0}</td>
+    <td style="font-family:var(--fm);font-size:.75em">${g?.lat?(+g.lat).toFixed(5)+', '+(+g.lon).toFixed(5):'—'}</td></tr>`;
+  }).join('');
+}
+
+function loadTransect(k){
+  if(isDirty&&!confirm('Hay datos sin guardar. ¿Continuar?')) return;
+  const t=savedTransects[k]; if(!t) return;
+  document.getElementById('tid').value=t.meta.tid;
+  document.getElementById('bio').value=t.meta.bio;
+  document.getElementById('fecha').value=t.meta.fecha;
+  document.getElementById('hora').value=t.meta.hora||'';
+  document.getElementById('bMat').innerHTML='';document.getElementById('bPas').innerHTML='';
+  document.getElementById('eMat').style.display='';document.getElementById('ePas').style.display='';
+  matRC=0;pasQC=0;
+  // Restore transect GPS
+  if(t.meta.transectGps?.lat){
+    transectGps={...t.meta.transectGps};
+    document.getElementById('tLatStart').textContent=(+transectGps.lat).toFixed(7);
+    document.getElementById('tLonStart').textContent=(+transectGps.lon).toFixed(7);
+    document.getElementById('tUtmStart').textContent=`${(+transectGps.utmE).toFixed(1)} / ${(+transectGps.utmN).toFixed(1)} (${transectGps.zone})`;
+  } else {
+    transectGps={lat:null,lon:null,alt:null,acc:null,utmE:null,utmN:null,zone:null};
+    document.getElementById('tLatStart').textContent='Sin captura';
+    document.getElementById('tLonStart').textContent='Sin captura';
+    document.getElementById('tUtmStart').textContent='Sin captura';
+  }
+  (t.mat||[]).forEach(d=>addMat(d));
+  // Rebuild pastizal
+  const grp={};
+  (t.pas||[]).forEach(d=>{if(!grp[d.q])grp[d.q]=[];grp[d.q].push(d);});
+  Object.keys(grp).sort((a,b)=>+a-+b).forEach(q=>grp[q].forEach(d=>addPasRow(d)));
+  updateCounts();markClean();
+  goTab('cap',document.querySelectorAll('.tab')[0]);
+}
+
+function addPasRow(data){
+  const tb=document.getElementById('bPas');
+  const lat=data.lat||'',lon=data.lon||'',utmE=data.utmE||'',utmN=data.utmN||'';
+  const hasgps=lat!=='';
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td style="font-family:var(--fm);font-size:.78em;text-align:center;font-weight:600;color:var(--sage)">${data.q}</td>
+    <td style="font-family:var(--fm);font-size:.8em;text-align:center">${data.pto} m</td>
+    <td><input class="ti sp-pas" list="dlPas" value="${data.sp||''}" oninput="markDirty();updateCounts()" style="min-width:160px"></td>
+    <td><div style="display:flex;align-items:center;gap:4px"><input type="number" class="ti cob" value="${data.cob||0}" min="0" max="100" step="1" style="width:60px" oninput="checkCob(this);markDirty();updateCounts()"><span style="color:#aaa;font-size:.82em">%</span></div></td>
+    <td><select class="tsel fv-pas" style="min-width:95px" onchange="markDirty();scheduleAutoSave()">${fvOpts(FV_PAS,data.fv||'Gramínea perenne')}</select></td>
+    <td>${coordInput('gps-lat',lat,'Latitud')}</td>
+    <td>${coordInput('gps-lon',lon,'Longitud')}</td>
+    <td>${coordInput('gps-utme',utmE,'UTM E')}</td>
+    <td>${coordInput('gps-utmn',utmN,'UTM N')}</td>
+    <td><button class="gps-btn ${hasgps?'done':''}" onclick="captureRowGps(this,'pas')">${hasgps?'✅ GPS':'📡 GPS'}</button></td>
+    <td><input class="ti obs-pas" value="${data.obs||''}" placeholder="Notas" style="min-width:105px"></td>
+    <td><button class="btn btn-r btn-sm" style="padding:4px 6px" onclick="delPas(this)">✕</button></td>`;
+  tb.appendChild(tr);
+  document.getElementById('ePas').style.display='none';
+}
+
+function loadTransectResults(k){const t=savedTransects[k];if(!t?.results)return alert('Sin análisis calculado para este transecto.');currentResults=t.results;renderResults();goTab('res',document.querySelectorAll('.tab')[1]);}
+function deleteTransect(k){
+  if(!confirm(`¿Eliminar transecto ${k} permanentemente?\n\nEsta acción no se puede deshacer.`)) return;
+  delete savedTransects[k];
+  persistToStorage();
+  renderHist();
+  showToast(`🗑 Transecto ${k} eliminado`,'var(--red)');
+}
+function clearAll(){
+  const n=Object.keys(savedTransects).length;
+  if(!confirm(`¿Borrar los ${n} transectos guardados en el historial?\n\nEsto NO borra la vista actual, solo el historial.`)) return;
+  savedTransects={};
+  persistToStorage();
+  renderHist();
+  showToast('🗑 Historial de transectos eliminado','var(--red)');
+}
+
+// ══════════════════════════════════════════════════════════
+// NOM
+// ══════════════════════════════════════════════════════════
+function renderNom(){
+  const nomMap={};
+  const collect=rows=>rows.forEach(r=>{
+    if(!r.nom) return;
+    const k=r.sp.toLowerCase();
+    if(!nomMap[k]) nomMap[k]={sp:r.sp,cn:r.cn||CN[k]||'—',nom:r.nom,fv:r.fv||'—',n:0,tids:[],lats:[],lons:[]};
+    nomMap[k].n++; if(!nomMap[k].tids.includes(r.tid)) nomMap[k].tids.push(r.tid);
+    if(r.lat) nomMap[k].lats.push(+r.lat); if(r.lon) nomMap[k].lons.push(+r.lon);
+  });
+  Object.values(savedTransects).forEach(t=>collect(t.mat||[]));
+  // Also current unsaved
+  document.querySelectorAll('#bMat tr').forEach(r=>{
+    const sp=r.querySelector('.sp-mat')?.value.trim(),nom=r.querySelector('.nom-sel')?.value,cn=r.querySelector('.cn-mat')?.value.trim(),fv=r.querySelector('.fv-mat')?.value,lat=r.querySelector('.gps-lat')?.value,lon=r.querySelector('.gps-lon')?.value;
+    if(sp&&nom) collect([{sp,cn,nom,fv,tid:document.getElementById('tid').value,lat,lon}]);
+  });
+  const rows=Object.values(nomMap);
+  document.getElementById('nomTotalCnt').textContent=rows.reduce((s,r)=>s+r.n,0)+' ind.';
+  if(!rows.length){document.getElementById('nomBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:#bbb;padding:20px">Sin registros NOM-059</td></tr>';return;}
+  document.getElementById('nomBody').innerHTML=rows.sort((a,b)=>b.n-a.n).map(r=>{
+    const avgLat=r.lats.length?r.lats.reduce((s,v)=>s+v,0)/r.lats.length:null;
+    const avgLon=r.lons.length?r.lons.reduce((s,v)=>s+v,0)/r.lons.length:null;
+    return`<tr>
+      <td><em>${r.sp}</em></td><td>${r.cn}</td>
+      <td><span class="chip ${r.nom==='Pr'?'chip-y':'chip-r'}">${r.nom} — ${NOM_LBL[r.nom]||r.nom}</span></td>
+      <td style="font-family:var(--fm);font-size:.8em">${r.tids.sort().join(', ')}</td>
+      <td style="text-align:center;font-family:var(--fm);font-weight:600">${r.n}</td>
+      <td>${r.fv}</td>
+      <td style="font-family:var(--fm);font-size:.8em">${avgLat?avgLat.toFixed(6):'—'}</td>
+      <td style="font-family:var(--fm);font-size:.8em">${avgLon?avgLon.toFixed(6):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// WEATHER API — OpenMeteo (free, no key required)
+// ══════════════════════════════════════════════════════════
+async function fetchWeather(){
+  const btn=document.getElementById('btnWeather');
+  const status=document.getElementById('weatherStatus');
+  // Need GPS coordinates
+  const lat=transectGps.lat || (currentPos?.coords?.latitude);
+  const lon=transectGps.lon || (currentPos?.coords?.longitude);
+  if(!lat||!lon){
+    showToast('⚠️ Capture el GPS del transecto primero para obtener clima','var(--amber)');
+    status.textContent='Sin GPS';
+    return;
+  }
+  btn.textContent='⏳ Consultando...';
+  btn.disabled=true;
+  status.textContent='';
+  try{
+    // Open-Meteo: current weather (no API key needed)
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${(+lat).toFixed(4)}&longitude=${(+lon).toFixed(4)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=America%2FMexico_City&forecast_days=1`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const c=data.current;
+    const temp=c.temperature_2m;
+    const hum=c.relative_humidity_2m;
+    const wind=c.wind_speed_10m;
+    const precip=c.precipitation;
+    const now=new Date();
+    const timeStr=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    // Determine if inicio or final is empty — fill the first available
+    const tIni=document.getElementById('t_ini');
+    const hIni=document.getElementById('h_ini');
+    const tFin=document.getElementById('t_fin');
+    const hFin=document.getElementById('h_fin');
+    const horaFin=document.getElementById('hora_fin');
+
+    if(!tIni.value){
+      // Fill inicio
+      tIni.value=temp.toFixed(1);
+      hIni.value=hum.toFixed(0);
+      showToast(`🌡 T°=${temp}°C H%=${hum}% — guardado como INICIO`,'var(--sky)');
+    } else {
+      // Fill final
+      tFin.value=temp.toFixed(1);
+      hFin.value=hum.toFixed(0);
+      if(!horaFin.value) horaFin.value=timeStr;
+      showToast(`🌡 T°=${temp}°C H%=${hum}% — guardado como FINAL`,'var(--moss)');
+    }
+
+    // Store extra weather data
+    window._lastWeather={temp,hum,wind,precip,time:timeStr,lat:+lat,lon:+lon,source:'open-meteo'};
+    status.textContent=`${temp}°C · ${hum}% · ${timeStr}`;
+    markDirty(); scheduleAutoSave();
+  }catch(e){
+    showToast('❌ Error al obtener clima: '+e.message,'var(--red)');
+    status.textContent='Error API';
+    console.error('Weather API error:',e);
+  }finally{
+    btn.textContent='🌐 API clima';
+    btn.disabled=false;
+  }
+}
+
+// Helper to get T/H meta for current transect
+function getTHMeta(){
+  return{
+    t_ini: document.getElementById('t_ini')?.value||'',
+    h_ini: document.getElementById('h_ini')?.value||'',
+    t_fin: document.getElementById('t_fin')?.value||'',
+    h_fin: document.getElementById('h_fin')?.value||'',
+    hora_fin: document.getElementById('hora_fin')?.value||'',
+    t_delta: (document.getElementById('t_ini')?.value&&document.getElementById('t_fin')?.value)
+      ? (+document.getElementById('t_fin').value - +document.getElementById('t_ini').value).toFixed(1)
+      : '',
+    weather_source: window._lastWeather?.source||'manual',
+  };
+}
+
+function setTHMeta(m){
+  if(!m) return;
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!==undefined&&v!=='') el.value=v; };
+  set('t_ini',m.t_ini); set('h_ini',m.h_ini);
+  set('t_fin',m.t_fin); set('h_fin',m.h_fin);
+  set('hora_fin',m.hora_fin);
+}
+
+// ══════════════════════════════════════════════════════════
+// DATA GATHERING
+// ══════════════════════════════════════════════════════════
+function gatherMat(){
+  const tid=document.getElementById('tid').value,bio=document.getElementById('bio').value,fecha=document.getElementById('fecha').value;
+  const th=getTHMeta();
+  const rows=[];
+  document.querySelectorAll('#bMat tr').forEach((r,i)=>{
+    rows.push({tid,bio,fecha,no:i+1,
+      sp:r.querySelector('.sp-mat').value.trim(),
+      cn:r.querySelector('.cn-mat').value.trim(),
+      diam:parseFloat(r.querySelector('.diam').value)||0,
+      altv:parseFloat(r.querySelector('.alt-mat').value)||0,
+      fv:r.querySelector('.fv-mat').value,
+      nom:r.querySelector('.nom-sel').value,
+      lat:r.querySelector('.gps-lat')?.value||'',
+      lon:r.querySelector('.gps-lon')?.value||'',
+      utmE:r.querySelector('.gps-utme')?.value||'',
+      utmN:r.querySelector('.gps-utmn')?.value||'',
+      acc:r.querySelector('.gps-acc')?.value||'',
+      obs:r.querySelector('.obs-mat').value.trim(),
+      // T/H from transect-level fields
+      t_ini:th.t_ini, h_ini:th.h_ini,
+      t_fin:th.t_fin, h_fin:th.h_fin,
+      hora_fin:th.hora_fin,
+      t_delta:th.t_delta,
+      weather_source:th.weather_source,
+    });
+  });
+  return rows;
+}
+
+function gatherPas(){
+  const tid=document.getElementById('tid').value,bio=document.getElementById('bio').value,fecha=document.getElementById('fecha').value;
+  const th=getTHMeta();
+  const rows=[];
+  document.querySelectorAll('#bPas tr').forEach(r=>{
+    rows.push({tid,bio,fecha,
+      q:r.cells[0].textContent.trim(),
+      pto:r.cells[1].textContent.replace(' m','').trim(),
+      sp:r.querySelector('.sp-pas').value.trim(),
+      cob:parseFloat(r.querySelector('.cob').value)||0,
+      fv:r.querySelector('.fv-pas').value,
+      lat:r.querySelector('.gps-lat')?.value||'',
+      lon:r.querySelector('.gps-lon')?.value||'',
+      utmE:r.querySelector('.gps-utme')?.value||'',
+      utmN:r.querySelector('.gps-utmn')?.value||'',
+      obs:r.querySelector('.obs-pas').value.trim(),
+      // T/H from transect-level fields
+      t_ini:th.t_ini, h_ini:th.h_ini,
+      t_fin:th.t_fin, h_fin:th.h_fin,
+      hora_fin:th.hora_fin,
+      t_delta:th.t_delta,
+    });
+  });
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════════
+// PERSISTENCE — auto-save + full DOM restore + reset all
+// ══════════════════════════════════════════════════════════
+
+// Debounced auto-save: fires 1.5s after any change
+let _saveTimer=null;
+function scheduleAutoSave(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    // snapshot current open transect into savedTransects before persisting
+    const tid=document.getElementById('tid').value;
+    if(!savedTransects[tid]) savedTransects[tid]={};
+    savedTransects[tid].meta={
+      tid, bio:document.getElementById('bio').value,
+      fecha:document.getElementById('fecha').value,
+      hora:document.getElementById('hora').value,
+      cond:document.getElementById('cond').value,
+      transectGps:{...transectGps},
+      th:getTHMeta()
+    };
+    savedTransects[tid].mat=gatherMat();
+    savedTransects[tid].pas=gatherPas();
+    if(currentResults && currentResults.tid===tid)
+      savedTransects[tid].results=currentResults;
+    persistToStorage();
+  }, 1500);
+}
+
+function persistToStorage(){
+  try{
+    const store={};
+    Object.keys(savedTransects).forEach(k=>{
+      const t=savedTransects[k];
+      store[k]={meta:t.meta, mat:t.mat, pas:t.pas,
+        results:t.results?JSON.parse(JSON.stringify(t.results)):null};
+    });
+    localStorage.setItem('pelones_flora_v4', JSON.stringify({
+      transects: store,
+      savedAt: new Date().toISOString(),
+      version: 'flora_v4'
+    }));
+    markClean();
+    updateSaveStatus();
+  }catch(e){
+    console.warn('localStorage write failed:', e);
+    showToast('⚠️ Error al guardar — almacenamiento lleno','#e67e22');
+  }
+}
+
+function loadFromStorage(){
+  try{
+    // Try new key first, fall back to old key
+    let raw = localStorage.getItem('pelones_flora_v4') || localStorage.getItem('pelones_v4');
+    if(!raw) return false;
+    const parsed = JSON.parse(raw);
+    // Handle both formats
+    const store = parsed.transects || parsed;
+    if(!store || typeof store !== 'object') return false;
+    savedTransects = store;
+    updateSaveStatus(parsed.savedAt);
+    return Object.keys(store).length > 0;
+  }catch(e){console.warn('loadFromStorage error',e); return false;}
+}
+
+function updateSaveStatus(isoStr){
+  const el=document.getElementById('saveTime');
+  if(!el) return;
+  if(isoStr){
+    try{
+      const dt=new Date(isoStr);
+      el.textContent='Guardado '+dt.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    }catch(e){ el.textContent='Guardado'; }
+  } else {
+    // Read from storage
+    try{
+      const raw=localStorage.getItem('pelones_flora_v4');
+      if(raw){
+        const p=JSON.parse(raw);
+        if(p.savedAt){
+          const dt=new Date(p.savedAt);
+          el.textContent='Guardado '+dt.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+          return;
+        }
+      }
+    }catch(e){}
+    el.textContent='Sin datos guardados';
+  }
+}
+
+// Restore all saved transects into the UI on page load
+function restoreAllTransects(){
+  const keys=Object.keys(savedTransects).sort((a,b)=>+a-+b);
+  if(!keys.length) return 0;
+  // Load the most recently modified transect into the active view
+  // (determined by last tid or first key)
+  const lastKey=keys[keys.length-1];
+  const t=savedTransects[lastKey];
+  if(!t) return 0;
+  // Set header fields from the last transect
+  if(t.meta){
+    document.getElementById('tid').value   = t.meta.tid  || lastKey;
+    document.getElementById('bio').value   = t.meta.bio  || '';
+    document.getElementById('fecha').value = t.meta.fecha|| '';
+    document.getElementById('hora').value  = t.meta.hora || '';
+    // Restore T/H
+    if(t.meta.th) setTHMeta(t.meta.th);
+    if(t.meta.transectGps?.lat){
+      transectGps={...t.meta.transectGps};
+      document.getElementById('tLatStart').textContent=(+transectGps.lat).toFixed(7);
+      document.getElementById('tLonStart').textContent=(+transectGps.lon).toFixed(7);
+      if(transectGps.utmE&&transectGps.utmN)
+        document.getElementById('tUtmStart').textContent=
+          `${(+transectGps.utmE).toFixed(1)} / ${(+transectGps.utmN).toFixed(1)} (${transectGps.zone||''})`;
+      document.getElementById('btnTGps').textContent='✅ GPS capturado';
+      document.getElementById('btnTGps').style.background='var(--gps-on)';
+      document.getElementById('btnTGps').style.color='#fff';
+    }
+  }
+  // Rebuild DOM rows for this transect
+  (t.mat||[]).forEach(d=>addMat(d));
+  // Rebuild pastizal rows
+  const grpPas={};
+  (t.pas||[]).forEach(d=>{const q=d.q||'1';if(!grpPas[q])grpPas[q]=[];grpPas[q].push(d);});
+  Object.keys(grpPas).sort((a,b)=>+a-+b).forEach(q=>grpPas[q].forEach(d=>addPasRow(d)));
+  updateCounts();
+  // Restore results if available
+  if(t.results){
+    currentResults=t.results;
+    renderResults();
+  }
+  return keys.length;
+}
+
+// Manual save button
+function saveSession(){
+  const tid=document.getElementById('tid').value;
+  if(!savedTransects[tid]) savedTransects[tid]={};
+  savedTransects[tid].meta={
+    tid, bio:document.getElementById('bio').value,
+    fecha:document.getElementById('fecha').value,
+    hora:document.getElementById('hora').value,
+    cond:document.getElementById('cond').value,
+    transectGps:{...transectGps},
+    th:getTHMeta()
+  };
+  savedTransects[tid].mat=gatherMat();
+  savedTransects[tid].pas=gatherPas();
+  if(currentResults && currentResults.tid===tid)
+    savedTransects[tid].results=currentResults;
+  persistToStorage();
+  showToast(`✅ Transecto ${tid} guardado · ${savedTransects[tid].mat.length} mat. / ${savedTransects[tid].pas.length} pas.`,'var(--moss)');
+}
+
+// Clear current transect view (does NOT erase localStorage)
+function clearCurrent(){
+  if(!confirm('¿Limpiar la vista del transecto actual?\n\nLos datos ya guardados en memoria del navegador se mantienen y se pueden recuperar desde la pestaña Transectos.')) return;
+  document.getElementById('bMat').innerHTML='';
+  document.getElementById('bPas').innerHTML='';
+  document.getElementById('eMat').style.display='';
+  document.getElementById('ePas').style.display='';
+  matRC=0; pasQC=0;
+  transectGps={lat:null,lon:null,alt:null,acc:null,utmE:null,utmN:null,zone:null};
+  document.getElementById('tLatStart').textContent='Sin captura';
+  document.getElementById('tLonStart').textContent='Sin captura';
+  document.getElementById('tUtmStart').textContent='Sin captura';
+  const b=document.getElementById('btnTGps');
+  b.textContent='📡 Capturar inicio';
+  b.style.background=''; b.style.color='';
+  updateCounts(); markDirty();
+  showToast('🧹 Vista limpiada — datos en memoria intactos','#555');
+}
+
+// ── RESET ALL — double confirmation ──────────────────────
+function resetAll(){
+  const totalT=Object.keys(savedTransects).length;
+  const totalMat=Object.values(savedTransects).reduce((s,t)=>s+(t.mat?.length||0),0);
+  const totalPas=Object.values(savedTransects).reduce((s,t)=>s+(t.pas?.length||0),0);
+
+  const step1=confirm(
+    '⚠️ ADVERTENCIA — BORRAR TODO\n\n'+
+    'Esta acción eliminará PERMANENTEMENTE:\n'+
+    `• ${totalT} transectos guardados\n`+
+    `• ${totalMat} individuos de matorral\n`+
+    `• ${totalPas} registros de pastizal\n`+
+    '• Todos los análisis IVI e índices calculados\n'+
+    '• Todas las coordenadas GPS capturadas\n\n'+
+    '¿Desea continuar?'
+  );
+  if(!step1) return;
+
+  const step2=confirm(
+    '🔴 CONFIRMACIÓN FINAL\n\n'+
+    'Está a punto de borrar TODOS los datos del muestreo vegetal.\n\n'+
+    'Esta acción NO se puede deshacer.\n\n'+
+    '¿Está completamente seguro?'
+  );
+  if(!step2) return;
+
+  // Clear DOM
+  document.getElementById('bMat').innerHTML='';
+  document.getElementById('bPas').innerHTML='';
+  document.getElementById('eMat').style.display='';
+  document.getElementById('ePas').style.display='';
+  matRC=0; pasQC=0;
+  transectGps={lat:null,lon:null,alt:null,acc:null,utmE:null,utmN:null,zone:null};
+  document.getElementById('tLatStart').textContent='Sin captura';
+  document.getElementById('tLonStart').textContent='Sin captura';
+  document.getElementById('tUtmStart').textContent='Sin captura';
+  const b=document.getElementById('btnTGps');
+  b.textContent='📡 Capturar inicio'; b.style.background=''; b.style.color='';
+  // Reset meta fields
+  const now=new Date();
+  document.getElementById('tid').value=1;
+  document.getElementById('fecha').valueAsDate=now;
+  document.getElementById('hora').value=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  // Clear results panels
+  document.getElementById('resEmpty').style.display='';
+  document.getElementById('resContent').style.display='none';
+  // Clear state
+  savedTransects={};
+  currentResults=null;
+  isDirty=false;
+  // Clear localStorage
+  localStorage.removeItem('pelones_flora_v4');
+  localStorage.removeItem('pelones_v4');
+  markClean();
+  document.getElementById('saveTime').textContent='Sin datos guardados';
+  updateCounts();
+  showToast('🗑 Todos los datos han sido eliminados','var(--red)');
+}
+
+// ── Toast notification ──────────────────────────────────
+function showToast(msg, color='var(--moss)'){
+  let t=document.getElementById('_toast');
+  if(!t){
+    t=document.createElement('div'); t.id='_toast';
+    t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);'+
+      'padding:10px 18px;border-radius:6px;font-family:var(--fm);font-size:.82em;'+
+      'color:#fff;z-index:9999;pointer-events:none;transition:opacity .4s;'+
+      'white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:90vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg; t.style.background=color; t.style.opacity='1';
+  clearTimeout(t._tmr);
+  t._tmr=setTimeout(()=>t.style.opacity='0', 3200);
+}
+
+function loadPrev(){
+  loadFromStorage();
+  renderHist();
+  goTab('hist',document.querySelectorAll('.tab')[3]);
+}
+
+function markDirty(){isDirty=true;document.getElementById('saveDot').className='save-dot dirty';}
+function markClean(){isDirty=false;document.getElementById('saveDot').className='save-dot';}
+
+function goTab(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('tab-'+id).classList.add('on');
+  btn.classList.add('on');
+  const lbl={cap:'Campo',res:'Análisis',jac:'Jaccard',hist:'Histórico',nom:'NOM-059',mapa:'Mapa GPS',exp:'Exportar'};
+  document.getElementById('hdrBadge').textContent=lbl[id];
+  if(id==='hist') renderHist();
+  if(id==='nom') renderNom();
+  if(id==='jac') renderJaccard();
+  if(id==='mapa') renderMap();
+}
+
+// ══════════════════════════════════════════════════════════
+// EXCEL EXPORTS
+// ══════════════════════════════════════════════════════════
+function matExportRow(r,tGps){
+  return{'Transecto':r.tid,'Biólogo':r.bio,'Fecha':r.fecha,'No.':r.no,'Especie':r.sp,'Nombre Común':r.cn,
+    'Ø Copa (m)':r.diam,'Área Copa (m²)':+(Math.PI*Math.pow(r.diam/2,2)).toFixed(4),
+    'Altura (m)':r.altv,'FV':r.fv,'NOM-059':r.nom||'',
+    'Latitud (WGS84)':r.lat||'','Longitud (WGS84)':r.lon||'',
+    'UTM Este (m)':r.utmE||'','UTM Norte (m)':r.utmN||'',
+    'Altitud GPS (m)':r.alt||'','Precisión GPS (m)':r.acc||'',
+    'Lat T.inicio':tGps?.lat||'','Lon T.inicio':tGps?.lon||'',
+    'UTM E T.inicio':tGps?.utmE||'','UTM N T.inicio':tGps?.utmN||'','Zona UTM':tGps?.zone||'',
+    'T° inicio (°C)':r.t_ini||'','H% inicio (%)':r.h_ini||'',
+    'T° final (°C)':r.t_fin||'','H% final (%)':r.h_fin||'',
+    'Hora final':r.hora_fin||'','ΔT° (°C)':r.t_delta||'',
+    'Fuente clima':r.weather_source||'manual',
+    'Observaciones':r.obs};
+}
+function pasExportRow(r,tGps){
+  return{'Transecto':r.tid,'Biólogo':r.bio,'Fecha':r.fecha,'Cuad.':r.q,'Pto(m)':r.pto,
+    'Especie':r.sp,'% Cobertura':r.cob,'FV':r.fv,
+    'Latitud (WGS84)':r.lat||'','Longitud (WGS84)':r.lon||'',
+    'UTM Este (m)':r.utmE||'','UTM Norte (m)':r.utmN||'',
+    'Lat T.inicio':tGps?.lat||'','Lon T.inicio':tGps?.lon||'','Zona UTM':tGps?.zone||'',
+    'T° inicio (°C)':r.t_ini||'','H% inicio (%)':r.h_ini||'',
+    'T° final (°C)':r.t_fin||'','H% final (%)':r.h_fin||'',
+    'Hora final':r.hora_fin||'','ΔT° (°C)':r.t_delta||'',
+    'Observaciones':r.obs};
+}
+
+function exportRaw(){
+  const wb=XLSX.utils.book_new();
+  const tg=transectGps;
+  const mat=gatherMat().map(r=>matExportRow(r,tg));
+  const pas=gatherPas().map(r=>pasExportRow(r,tg));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mat.length?mat:[{}]),'Datos_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pas.length?pas:[{}]),'Datos_Pastizal');
+  const tid=document.getElementById('tid').value,fecha=document.getElementById('fecha').value;
+  XLSX.writeFile(wb,`LosPelones_T${String(tid).padStart(2,'0')}_Crudos_${fecha}.xlsx`);
+}
+
+function exportAnalysis(){
+  if(!currentResults) return alert('Primero ejecuta "Calcular todo".');
+  const wb=XLSX.utils.book_new();
+  const {tid,fecha,matRows,pasRows,indices}=currentResults;
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(matRows.map(r=>({'Especie':r.sp,'N':r.n,'D abs(ind/ha)':+r.D_abs.toFixed(2),'D rel(%)':+r.D_rel.toFixed(4),'Dom abs(m²/ha)':+r.Dom_abs.toFixed(4),'Dom rel(%)':+r.Dom_rel.toFixed(4),'F abs':r.F_abs,'F rel(%)':+r.F_rel.toFixed(4),'IVI':+r.IVI.toFixed(4),'NOM':r.nom||'','Lat prom':r.lat||'','Lon prom':r.lon||''}))||[{}]),'IVI_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pasRows.map(r=>({'Especie':r.sp,'N cuad.':r.n,'Cob%':+r.cob.toFixed(2),'D rel%':+r.D_rel.toFixed(4),'Dom rel%':+r.Dom_rel.toFixed(4),'IVI':+r.IVI.toFixed(4)}))||[{}]),'IVI_Pastizal');
+  const i=indices;
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{'Transecto':tid,'Fecha':fecha,'S mat':i.S_mat,'S pas':i.S_pas,'S total':i.S_all,"H'":+i.H_prime.toFixed(6),"J'":+i.J_prime.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simpson.toFixed(6),'BP':+i.BP.toFixed(6),'f1':i.f1,'f2':i.f2,'N mat':i.totalN_mat,'Cob pas%':+i.totalCob.toFixed(2)}]),'Indices');
+  XLSX.writeFile(wb,`LosPelones_T${String(tid).padStart(2,'0')}_Analisis_${fecha}.xlsx`);
+}
+
+function exportFull(){
+  if(!currentResults) return alert('Primero ejecuta "Calcular todo".');
+  const wb=XLSX.utils.book_new();
+  const {tid,fecha,matRows,pasRows,indices}=currentResults;
+  const tg=transectGps;
+  const mat=gatherMat().map(r=>matExportRow(r,tg));
+  const pas=gatherPas().map(r=>pasExportRow(r,tg));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mat.length?mat:[{}]),'Datos_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pas.length?pas:[{}]),'Datos_Pastizal');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(matRows.map(r=>({'Especie':r.sp,'N':r.n,'D abs':+r.D_abs.toFixed(2),'D rel%':+r.D_rel.toFixed(4),'Dom abs':+r.Dom_abs.toFixed(4),'Dom rel%':+r.Dom_rel.toFixed(4),'F abs':r.F_abs,'F rel%':+r.F_rel.toFixed(4),'IVI':+r.IVI.toFixed(4),'NOM':r.nom||''}))||[{}]),'IVI_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pasRows.map(r=>({'Especie':r.sp,'N':r.n,'Cob%':+r.cob.toFixed(2),'D rel%':+r.D_rel.toFixed(4),'Dom rel%':+r.Dom_rel.toFixed(4),'IVI':+r.IVI.toFixed(4)}))||[{}]),'IVI_Pastizal');
+  const i=indices;
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{'Transecto':tid,'Fecha':fecha,'S mat':i.S_mat,'S pas':i.S_pas,'S total':i.S_all,"H'":+i.H_prime.toFixed(6),"J'":+i.J_prime.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simpson.toFixed(6),'BP':+i.BP.toFixed(6),'f1':i.f1,'f2':i.f2,'N mat':i.totalN_mat,'Cob pas%':+i.totalCob.toFixed(2)}]),'Indices');
+  const nomData=getNomForExport();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nomData.length?nomData:[{}]),'NOM_059');
+  XLSX.writeFile(wb,`LosPelones_T${String(tid).padStart(2,'0')}_COMPLETO_${fecha}.xlsx`);
+}
+
+function exportAllFull(){
+  const keys=Object.keys(savedTransects);
+  if(!keys.length) return alert('No hay transectos guardados.');
+  const wb=XLSX.utils.book_new();
+  let allMat=[],allPas=[],allIviMat=[],allIviPas=[],allIdx=[],jacData=[],allGps=[];
+  keys.sort((a,b)=>+a-+b).forEach(k=>{
+    const t=savedTransects[k],r=t.results,tg=t.meta?.transectGps;
+    if(tg?.lat) allGps.push({'Tipo':'T.inicio','Transecto':k,'Especie':'Inicio transecto','Latitud':+tg.lat,'Longitud':+tg.lon,'UTM E':tg.utmE?+tg.utmE:'','UTM N':tg.utmN?+tg.utmN:'','Zona UTM':tg.zone||'','Altitud(m)':tg.alt||'','Precisión(m)':tg.acc||''});
+    (t.mat||[]).forEach(row=>{allMat.push(matExportRow(row,tg));if(row.lat) allGps.push({'Tipo':'Matorral','Transecto':row.tid,'Especie':row.sp,'Latitud':+row.lat,'Longitud':+row.lon,'UTM E':row.utmE?+row.utmE:'','UTM N':row.utmN?+row.utmN:'','Zona UTM':tg?.zone||'','Altitud(m)':row.alt||'','Precisión(m)':row.acc||''});});
+    (t.pas||[]).forEach(row=>{allPas.push(pasExportRow(row,tg));if(row.lat) allGps.push({'Tipo':'Pastizal','Transecto':row.tid,'Especie':row.sp,'Latitud':+row.lat,'Longitud':+row.lon,'UTM E':row.utmE?+row.utmE:'','UTM N':row.utmN?+row.utmN:'','Zona UTM':tg?.zone||'','Altitud(m)':'','Precisión(m)':''});});
+    if(r){
+      (r.matRows||[]).forEach(row=>allIviMat.push({'Transecto':r.tid,'Especie':row.sp,'N':row.n,'D abs':+row.D_abs.toFixed(2),'D rel%':+row.D_rel.toFixed(4),'Dom abs':+row.Dom_abs.toFixed(4),'Dom rel%':+row.Dom_rel.toFixed(4),'F abs':row.F_abs,'F rel%':+row.F_rel.toFixed(4),'IVI':+row.IVI.toFixed(4),'NOM':row.nom||''}));
+      (r.pasRows||[]).forEach(row=>allIviPas.push({'Transecto':r.tid,'Especie':row.sp,'N':row.n,'Cob%':+row.cob.toFixed(2),'D rel%':+row.D_rel.toFixed(4),'Dom rel%':+row.Dom_rel.toFixed(4),'IVI':+row.IVI.toFixed(4)}));
+      const i=r.indices;
+      allIdx.push({'Transecto':r.tid,'Fecha':r.fecha,'S mat':i.S_mat,'S pas':i.S_pas,'S total':i.S_all,"H'":+i.H_prime.toFixed(6),"J'":+i.J_prime.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simpson.toFixed(6),'BP':+i.BP.toFixed(6),'f1':i.f1,'f2':i.f2,'N mat':i.totalN_mat,'Cob pas%':+i.totalCob.toFixed(2),'GPS inicio lat':tg?.lat||'','GPS inicio lon':tg?.lon||''});
+    }
+  });
+  // Jaccard
+  const jkeys=keys.filter(k=>{const t=savedTransects[k],sp=new Set();(t.mat||[]).forEach(r=>{if(r.sp)sp.add(r.sp.toLowerCase())});return sp.size>0;});
+  jkeys.forEach(ki=>jkeys.forEach(kj=>{
+    if(+ki>=+kj)return;
+    const spi=new Set(),spj=new Set();
+    (savedTransects[ki].mat||[]).forEach(r=>{if(r.sp)spi.add(r.sp.toLowerCase())});
+    (savedTransects[kj].mat||[]).forEach(r=>{if(r.sp)spj.add(r.sp.toLowerCase())});
+    const inter=new Set([...spi].filter(x=>spj.has(x))),union=new Set([...spi,...spj]);
+    const J=union.size>0?inter.size/union.size:0;
+    jacData.push({'T A':ki,'T B':kj,'Spp. compartidas':inter.size,'Spp. unión':union.size,'Jaccard':+J.toFixed(6),'Similitud':J>0.7?'Alta':J>0.5?'Media':J>0.3?'Baja':'Muy baja'});
+  }));
+  const nomData=getNomForExport();
+  const summData=keys.filter(k=>savedTransects[k].results).map(k=>{const t=savedTransects[k],r=t.results,i=r.indices,top=r.matRows?.[0],tg=t.meta?.transectGps;return{'T':r.tid,'Fecha':r.fecha,'N mat':i.totalN_mat,'S mat':i.S_mat,'S pas':i.S_pas,'S total':i.S_all,"H'":+i.H_prime.toFixed(4),"J'":+i.J_prime.toFixed(4),'D_Mg':+i.D_Mg.toFixed(4),'Chao1':+i.Chao1.toFixed(1),'1-D':+i.Simpson.toFixed(4),'IVI max spp':top?.sp||'—','IVI max val':top?+top.IVI.toFixed(2):0,'NOM ind':t.mat?.filter(r=>r.nom).length||0,'GPS inicio lat':tg?.lat||'','GPS inicio lon':tg?.lon||'','GPS inicio UTM E':tg?.utmE||'','GPS inicio UTM N':tg?.utmN||''};});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allMat.length?allMat:[{}]),'Datos_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allPas.length?allPas:[{}]),'Datos_Pastizal');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIviMat.length?allIviMat:[{}]),'IVI_Matorral');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIviPas.length?allIviPas:[{}]),'IVI_Pastizal');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIdx.length?allIdx:[{}]),'Indices_Biodiversidad');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(jacData.length?jacData:[{}]),'Similitud_Jaccard');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nomData.length?nomData:[{}]),'NOM_059');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allGps.length?allGps:[{}]),'GPS_Todos_Puntos');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summData.length?summData:[{}]),'Resumen_Global');
+  XLSX.writeFile(wb,'LosPelones_LIBRO_MAESTRO_GPS.xlsx');
+}
+
+function exportAllRaw(){
+  const keys=Object.keys(savedTransects);if(!keys.length)return alert('Sin transectos.');
+  const wb=XLSX.utils.book_new();let allMat=[],allPas=[];
+  keys.sort((a,b)=>+a-+b).forEach(k=>{const t=savedTransects[k],tg=t.meta?.transectGps;(t.mat||[]).forEach(r=>allMat.push(matExportRow(r,tg)));(t.pas||[]).forEach(r=>allPas.push(pasExportRow(r,tg)));});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allMat.length?allMat:[{}]),'Matorral_Global');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allPas.length?allPas:[{}]),'Pastizal_Global');
+  XLSX.writeFile(wb,'LosPelones_DATOS_CRUDOS_GPS.xlsx');
+}
+
+function exportAllAnalysis(){
+  const keys=Object.keys(savedTransects).filter(k=>savedTransects[k].results);
+  if(!keys.length)return alert('Sin análisis calculados.');
+  const wb=XLSX.utils.book_new();let allIviMat=[],allIviPas=[],allIdx=[];
+  keys.sort((a,b)=>+a-+b).forEach(k=>{
+    const r=savedTransects[k].results,tg=savedTransects[k].meta?.transectGps;
+    (r.matRows||[]).forEach(row=>allIviMat.push({'T':r.tid,'Especie':row.sp,'N':row.n,'D abs':+row.D_abs.toFixed(2),'D rel%':+row.D_rel.toFixed(4),'Dom abs':+row.Dom_abs.toFixed(4),'Dom rel%':+row.Dom_rel.toFixed(4),'F abs':row.F_abs,'F rel%':+row.F_rel.toFixed(4),'IVI':+row.IVI.toFixed(4),'NOM':row.nom||''}));
+    (r.pasRows||[]).forEach(row=>allIviPas.push({'T':r.tid,'Especie':row.sp,'N':row.n,'Cob%':+row.cob.toFixed(2),'D rel%':+row.D_rel.toFixed(4),'Dom rel%':+row.Dom_rel.toFixed(4),'IVI':+row.IVI.toFixed(4)}));
+    const i=r.indices;allIdx.push({'T':r.tid,'Fecha':r.fecha,'S mat':i.S_mat,'S pas':i.S_pas,'S total':i.S_all,"H'":+i.H_prime.toFixed(6),"J'":+i.J_prime.toFixed(6),'D_Mg':+i.D_Mg.toFixed(6),'Chao1':+i.Chao1.toFixed(2),'1-D':+i.Simpson.toFixed(6),'BP':+i.BP.toFixed(6),'N mat':i.totalN_mat,'Cob pas%':+i.totalCob.toFixed(2),'GPS lat':tg?.lat||''});
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIviMat.length?allIviMat:[{}]),'IVI_Matorral_Global');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIviPas.length?allIviPas:[{}]),'IVI_Pastizal_Global');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allIdx.length?allIdx:[{}]),'Indices_Global');
+  XLSX.writeFile(wb,'LosPelones_ANALISIS_GPS.xlsx');
+}
+
+function getNomForExport(){
+  const nomMap={};
+  Object.values(savedTransects).forEach(t=>(t.mat||[]).forEach(r=>{if(!r.nom)return;const k=r.sp.toLowerCase();if(!nomMap[k])nomMap[k]={sp:r.sp,cn:r.cn||CN[k]||'—',nom:r.nom,fv:r.fv||'—',n:0,tids:[],lats:[],lons:[]};nomMap[k].n++;if(!nomMap[k].tids.includes(r.tid))nomMap[k].tids.push(r.tid);if(r.lat)nomMap[k].lats.push(+r.lat);if(r.lon)nomMap[k].lons.push(+r.lon);}));
+  return Object.values(nomMap).map(r=>{const avgLat=r.lats.length?r.lats.reduce((s,v)=>s+v,0)/r.lats.length:null,avgLon=r.lons.length?r.lons.reduce((s,v)=>s+v,0)/r.lons.length:null;return{'Especie':r.sp,'Nombre Común':r.cn,'Categoría NOM-059':r.nom+' — '+(NOM_LBL[r.nom]||r.nom),'Transectos':r.tids.sort().join(', '),'N Individuos':r.n,'FV':r.fv,'Lat promedio':avgLat?+avgLat.toFixed(6):'','Lon promedio':avgLon?+avgLon.toFixed(6):''};});
+}
+</script>
+</body>
+</html>
