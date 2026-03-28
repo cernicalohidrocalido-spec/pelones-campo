@@ -3,8 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#141e24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pelones Fauna">
 <title>CYCNA Los Pelones — Fauna v1 GPS</title>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script>
+// Registrar Service Worker para funcionamiento offline
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('[SW] Registrado:', reg.scope);
+        // Notificar si hay actualización disponible
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          nw.addEventListener('statechange', () => {
+            if(nw.state === 'installed' && navigator.serviceWorker.controller){
+              // Hay versión nueva — opcional: mostrar toast
+              if(typeof showToast === 'function')
+                showToast('🔄 Actualización disponible — recarga para aplicar','#2471a3');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[SW] Error al registrar:', err));
+  });
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -1138,7 +1166,8 @@ function addRow(grp){
   const tr=document.createElement('tr'); tr.className='fi';
 
   let inner='';
-  const cn=`<input class="ti cn" value="" placeholder="Nombre común" style="min-width:100px">`;
+  const nCell=`<td style="font-family:var(--fm);font-size:.7em;color:#aaa;text-align:center;min-width:22px">${String(n).padStart(2,'0')}</td>`;
+  const cn=`<input class="ti cn" value="" placeholder="Nombre común" style="min-width:100px" oninput="markDirty();scheduleAutoSave()">`;
   const gpsBtn=`<button class="gpsbtn" onclick="captureRowGps(this,'${grp}')">📡 GPS</button>`;
   const del=`<td class="td-actions">
       <div class="row-actions">
@@ -1156,47 +1185,47 @@ function addRow(grp){
 
   if(grp==='ave'){
     inner=`${nCell}
-      <td><input class="ti sp" list="dlAve" placeholder="Especie" style="min-width:170px" oninput="autoFill(this,'ave');markDirty();updateCounts('ave')"></td>
+      <td><input class="ti sp" list="dlAve" placeholder="Especie" style="min-width:170px" oninput="autoFill(this,'ave');markDirty();updateCounts('ave');scheduleAutoSave()"></td>
       <td>${cn}</td>
-      <td><input type="number" class="ti nind" value="1" min="1" style="width:55px" oninput="updateCounts('ave');markDirty()"></td>
-      <td><select class="tsel det" onchange="markDirty()">${selOpts(DET_AVE)}</select></td>
-      <td><select class="tsel dist" onchange="markDirty()">${selOpts(DIST_AVE)}</select></td>
-      <td><select class="tsel est" onchange="markDirty()">${selOpts(ESTRATO_AVE)}</select></td>
-      <td><select class="tsel cond" onchange="markDirty()">${selOpts(COND_AVE)}</select></td>
-      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','ave')}</select></td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:55px" oninput="updateCounts('ave');markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel det" onchange="markDirty();scheduleAutoSave()">${selOpts(DET_AVE)}</select></td>
+      <td><select class="tsel dist" onchange="markDirty();scheduleAutoSave()">${selOpts(DIST_AVE)}</select></td>
+      <td><select class="tsel est" onchange="markDirty();scheduleAutoSave()">${selOpts(ESTRATO_AVE)}</select></td>
+      <td><select class="tsel cond" onchange="markDirty();scheduleAutoSave()">${selOpts(COND_AVE)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel('','ave')}</select></td>
       <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
       <td>${gpsBtn}</td>
-      <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
+      <td><input class="ti obs" placeholder="Notas" style="min-width:110px" oninput="markDirty();scheduleAutoSave()"></td>
       ${del}`;
   } else if(grp==='mam'){
     inner=`${nCell}
-      <td><input class="ti sp" list="dlMam" placeholder="Especie/indet." style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam')"></td>
+      <td><input class="ti sp" list="dlMam" placeholder="Especie/indet." style="min-width:165px" oninput="autoFill(this,'mam');markDirty();updateCounts('mam');scheduleAutoSave()"></td>
       <td>${cn}</td>
-      <td><select class="tsel indicio" onchange="markDirty()">${selOpts(INDICIO)}</select></td>
-      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('mam');markDirty()"></td>
-      <td><input type="number" class="ti dist" value="0" min="0" step="1" style="width:65px" oninput="markDirty()"></td>
-      <td><select class="tsel sust" onchange="markDirty()">${selOpts(SUSTRATO)}</select></td>
-      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','mam')}</select></td>
-      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px"></td>
+      <td><select class="tsel indicio" onchange="markDirty();scheduleAutoSave()">${selOpts(INDICIO)}</select></td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('mam');markDirty();scheduleAutoSave()"></td>
+      <td><input type="number" class="ti dist" value="0" min="0" step="1" style="width:65px" oninput="markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel sust" onchange="markDirty();scheduleAutoSave()">${selOpts(SUSTRATO)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel('','mam')}</select></td>
+      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px" oninput="markDirty();scheduleAutoSave()"></td>
       <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
       <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
-      <td><input class="ti obs" placeholder="Descripción indicio" style="min-width:110px"></td>
+      <td><input class="ti obs" placeholder="Descripción indicio" style="min-width:110px" oninput="markDirty();scheduleAutoSave()"></td>
       ${del}`;
   } else if(grp==='herp'){
     inner=`${nCell}
-      <td><input class="ti sp" list="dlHerp" placeholder="Especie" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp')"></td>
+      <td><input class="ti sp" list="dlHerp" placeholder="Especie" style="min-width:165px" oninput="autoFill(this,'herp');markDirty();updateCounts('herp');scheduleAutoSave()"></td>
       <td>${cn}</td>
-      <td><select class="tsel clase" onchange="markDirty()">${selOpts(CLASE_HERP)}</select></td>
-      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('herp');markDirty()"></td>
-      <td><select class="tsel microhab" onchange="markDirty()">${selOpts(MICROHAB)}</select></td>
-      <td><select class="tsel cond" onchange="markDirty()">${selOpts(COND_HERP)}</select></td>
-      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty()">${nomSel('','herp')}</select></td>
-      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px"></td>
+      <td><select class="tsel clase" onchange="markDirty();scheduleAutoSave()">${selOpts(CLASE_HERP)}</select></td>
+      <td><input type="number" class="ti nind" value="1" min="1" style="width:50px" oninput="updateCounts('herp');markDirty();scheduleAutoSave()"></td>
+      <td><select class="tsel microhab" onchange="markDirty();scheduleAutoSave()">${selOpts(MICROHAB)}</select></td>
+      <td><select class="tsel cond" onchange="markDirty();scheduleAutoSave()">${selOpts(COND_HERP)}</select></td>
+      <td><select class="tsel nom-sel" onchange="markNomRow(this);markDirty();scheduleAutoSave()">${nomSel('','herp')}</select></td>
+      <td><input class="ti foto" placeholder="IMG_0001" style="width:80px" oninput="markDirty();scheduleAutoSave()"></td>
       <td>${coordI('gps-lat')}</td><td>${coordI('gps-lon')}</td><td>${coordI('gps-utme')}</td><td>${coordI('gps-utmn')}</td>
       <td><input class="ti gps-acc" placeholder="m" style="width:55px;font-size:.74em;font-family:var(--fm)" readonly></td>
       <td>${gpsBtn}</td>
-      <td><input class="ti obs" placeholder="Notas" style="min-width:110px"></td>
+      <td><input class="ti obs" placeholder="Notas" style="min-width:110px" oninput="markDirty();scheduleAutoSave()"></td>
       ${del}`;
   }
   tr.innerHTML=inner;
